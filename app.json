@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Avaliação de equilíbrio",
+    "slug": "monitoramento-postural-mobile",
+    "plugins": [
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}
