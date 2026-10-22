@@ -16,13 +16,17 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 ## Funcionalidades
 
 - Interface minimalista e de alto contraste, com botão central grande e texto legível, pensada para facilitar o uso por pessoas idosas.
-- Beep de preparação e contagem regressiva visual de três segundos antes da coleta.
-- Beep distinto no início da contagem e no início da captura.
+- Beep de preparação e aviso para ficar parado com o celular na cabeça.
+- Registro da fase estática durante os primeiros cinco segundos da captura.
+- Beep duplo ao fim da fase estática e aviso para começar a andar.
 - Captura contínua dos eixos X, Y e Z do giroscópio, com intervalo configurado de 50 ms.
-- Registro do tempo decorrido, em milissegundos, para cada leitura.
+- Registro do tempo decorrido, em milissegundos, e da fase (`Estatico` ou `Dinamico`) em cada leitura.
 - Geração automática de planilha Excel (`.xlsx`) ao encerrar a avaliação.
 - Compartilhamento do arquivo pela interface nativa do celular, para envio ou análise externa.
+- Exibição imediata no app de gráficos do movimento registrado, com resumo da duração e das leituras por fase.
+- Gráfico temporal dos três eixos e dispersão X × Y, com fases estática e dinâmica destacadas.
 - Verificação da disponibilidade do giroscópio antes de iniciar a avaliação.
+- Script Python para calibrar os eixos pela fase estática, aplicar filtro Butterworth e gerar gráficos.
 
 ## Tecnologias utilizadas
 
@@ -34,6 +38,7 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 - [Expo Sharing](https://docs.expo.dev/versions/v57.0.0/sdk/sharing/) — compartilhamento nativo do arquivo.
 - [SheetJS (`xlsx`)](https://www.npmjs.com/package/xlsx) — criação da planilha Excel.
 - [React Native Safe Area Context](https://github.com/AppAndFlow/react-native-safe-area-context) — adaptação às áreas seguras da tela.
+- Python, [pandas](https://pandas.pydata.org/), [SciPy](https://scipy.org/) e [Matplotlib](https://matplotlib.org/) — processamento e visualização dos dados exportados.
 
 ## Pré-requisitos e instalação
 
@@ -69,13 +74,50 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 ## Como usar
 
 1. Abra o aplicativo e posicione o celular conforme a orientação do profissional responsável pela avaliação.
-2. Toque em **Iniciar Avaliação**. O aplicativo verifica se o giroscópio está disponível e emite o primeiro beep.
-3. Acompanhe a contagem regressiva visual: **3, 2, 1**.
-4. Ao final da contagem, um segundo beep sinaliza o início da captura. A coleta dos eixos do giroscópio começa, e o botão passa a exibir **Parar Avaliação**.
-5. Toque em **Parar Avaliação** quando a coleta terminar.
-6. O aplicativo gera a planilha `.xlsx` e abre o menu nativo de compartilhamento para que o arquivo possa ser enviado ou aberto em outro aplicativo.
+2. Toque em **Iniciar Avaliação**. Após verificar o giroscópio e emitir um beep, o aplicativo inicia a captura e orienta: **Ficar Parado com o celular na cabeça**.
+3. Durante os primeiros cinco segundos, as leituras são identificadas como `Estatico`.
+4. Ao completar cinco segundos, o app emite um beep duplo, exibe **Pode Andar** e continua a captura, agora identificando as leituras como `Dinamico`.
+5. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
+6. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
 
-A planilha contém o tempo decorrido da leitura, em milissegundos, e os valores dos eixos X, Y e Z do giroscópio. O intervalo de atualização é configurado para 50 ms; a frequência efetiva pode variar conforme o dispositivo.
+Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão X × Y, com a média da fase estática removida para facilitar a visualização. A tela também informa duração e contagem de leituras por fase. São visualizações da rotação do aparelho/cabeça, não uma medição direta do equilíbrio corporal ou um diagnóstico. A planilha contém `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
+
+## Análise dos dados com Python
+
+O script `analyze_equilibrio.py` lê a planilha exportada, separa as fases estática e dinâmica, calcula o offset de cada eixo usando a média da fase estática e aplica um filtro passa-baixa Butterworth de quarta ordem com corte em 5 Hz. Em seguida, salva `series_temporais.png` (com a transição de fase marcada) e `estabilograma.png` na pasta `analise_equilibrio`, ao lado da planilha.
+
+Instale Python 3.10 ou superior e as dependências:
+
+```bash
+python -m venv .venv
+```
+
+Ative o ambiente virtual:
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS ou Linux
+source .venv/bin/activate
+```
+
+Instale as bibliotecas e execute a análise:
+
+```bash
+python -m pip install -r requirements.txt
+python analyze_equilibrio.py caminho/para/avaliacao.xlsx
+```
+
+Para escolher outro diretório para as imagens:
+
+```bash
+python analyze_equilibrio.py caminho/para/avaliacao.xlsx --saida caminho/para/graficos
+```
+
+O filtro requer que a frequência de amostragem estimada a partir da coluna de tempo seja superior a 10 Hz. A taxa é estimada pela mediana dos intervalos entre amostras. Os gráficos representam a velocidade angular do giroscópio e servem como visualização da telemetria; não são uma medida clínica de centro de pressão nem fornecem diagnóstico.
 
 ## Equipe e créditos
 
