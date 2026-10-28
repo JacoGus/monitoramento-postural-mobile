@@ -22,6 +22,7 @@ const STATIC_PHASE_DURATION_MS = 5000;
 const EMA_CUTOFF_HZ = 3;
 const EIXO_LATERAL = 'x';
 const EIXO_ANTERO_POSTERIOR = 'y';
+const CONFIDENCE_95_CHI_SQUARE = 5.991;
 const AXIS_LABELS = {
   x: 'X',
   y: 'Y',
@@ -33,8 +34,12 @@ const SCATTER_CHART_HEIGHT = 280;
 const SERIES_COLORS = ['#1565C0', '#00897B', '#EF6C00'];
 const STATIC_COLOR = '#1565C0';
 const DYNAMIC_COLOR = '#D32F2F';
-const BEEP_WAV_BASE64 =
-  'UklGRiQFAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAFAAAAAG0R3Br2FxAKjffq6ODkSe1J/hIQfBq9GKQLNPnh6bbkEuyT/KYOARpsGSwN4frv6qjk7+rh+iwNbBkBGqYOk/wS7Lbk4ek0+aQLvRh8GhIQSf5J7eDk6uiN9xAK9hfcGm0RAACT7iTlCujw9XMIFhcgG7cStwHu74TlQ+dc9MwGHxZKG+4TbQNa8f/llObU8h8FERVYGxEVHwXU8pTm/+Va8W0D7hNKGx8WzAZc9EPnhOXu77cBtxIgGxYXcwjw9QroJOWT7gAAbRHcGvYXEAqN9+ro4ORJ7Un+EhB8Gr0YpAs0+eHptuQS7JP8pg4BGmwZLA3h+u/qqOTv6uH6LA1sGQEapg6T/BLstuTh6TT5pAu9GHwaEhBJ/knt4OTq6I33EAr2F9wabREAAJPuJOUK6PD1cwgWFyAbtxK3Ae7vhOVD51z0zAYfFkob7hNtA1rx/+WU5tTyHwURFVgbERUfBdTylOb/5VrxbQPuE0obHxbMBlz0Q+eE5e7vtwG3EiAbFhdzCPD1Cugk5ZPuAABtEdwa9hcQCo336ujg5EntSf4SEHwavRikCzT54em25BLsk/ymDgEabBksDeH67+qo5O/q4fosDWwZARqmDpP8Euy25OHpNPmkC70YfBoSEEn+Se3g5OrojfcQCvYX3BptEQAAk+4k5Qro8PVzCBYXIBu3ErcB7u+E5UPnXPTMBh8WShvuE20DWvH/5ZTm1PIfBREVWBsRFR8F1PKU5v/lWvFtA+4TShsfFswGXPRD54Tl7u+3AbcSIBsWF3MI8PUK6CTlk+4AAG0R3Br2FxAKjffq6ODkSe1J/hIQfBq9GKQLNPnh6bbkEuyT/KYOARpsGSwN4frv6qjk7+rh+iwNbBkBGqYOk/wS7Lbk4ek0+aQLvRh8GhIQSf5J7eDk6uiN9xAK9hfcGm0RAACT7iTlCujw9XMIFhcgG7cStwHu74TlQ+dc9MwGHxZKG+4TbQNa8f/llObU8h8FERVYGxEVHwXU8pTm/+Va8W0D7hNKGx8WzAZc9EPnhOXu77cBtxIgGxYXcwjw9QroJOWT7gAAbRHcGvYXEAqN9+ro4ORJ7Un+EhB8Gr0YpAs0+eHptuQS7JP8pg4BGmwZLA3h+u/qqOTv6uH6LA1sGQEapg6T/BLstuTh6TT5pAu9GHwaEhBJ/knt4OTq6I33EAr2F9wabREAAJPuJOUK6PD1cwgWFyAbtxK3Ae7vhOVD51z0zAYfFkob7hNtA1rx/+WU5tTyHwURFVgbERUfBdTylOb/5VrxbQPuE0obHxbMBlz0Q+eE5e7vtwG3EiAbFhdzCPD1Cugk5ZPuAABtEdwa9hcQCo336ujg5EntSf4SEHwavRikCzT54em25BLsk/ymDgEabBksDeH67+qo5O/q4fosDWwZARqmDpP8Euy25OHpNPmkC70YfBoSEEn+Se3g5OrojfcQCvYX3BptEQAAk+4k5Qro8PVzCBYXIBu3ErcB7u+E5UPnXPTMBh8WShvuE20DWvH/5ZTm1PIfBREVWBsRFR8F1PKU5v/lWvFtA+4TShsfFswGXPRD54Tl7u+3AbcSIBsWF3MI8PUK6CTlk+4AAG0R3Br2FxAKjffq6ODkSe1J/hIQfBq9GKQLNPnh6bbkEuyT/KYOARpsGSwN4frv6qjk7+rh+iwNbBkBGqYOk/wS7Lbk4ek0+aQLvRh8Gg==';
+const PREPARATION_BEEP_WAV_BASE64 =
+  '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';
+const STATIC_START_BEEP_WAV_BASE64 =
+  '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';
+const DYNAMIC_START_BEEP_WAV_BASE64 =
+  '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';
 
 const wait = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -62,6 +67,8 @@ const getPaddedDomain = (values) => {
 };
 
 const formatChartValue = (value) => Number(value.toFixed(2)).toString();
+const formatMetric = (value) =>
+  Number.isFinite(value) ? value.toFixed(3) : '—';
 
 const getStaticOffsets = (readings) => {
   const staticReadings = readings.filter((reading) => reading.phase === 'Estatico');
@@ -117,6 +124,130 @@ const calculateRms = (readings, axis) => {
     dynamicValues.length;
   return Math.sqrt(meanSquare);
 };
+
+const getDynamicReadings = (readings) =>
+  readings.filter((reading) => reading.phase === 'Dinamico');
+
+const calculateConfidenceEllipseArea95 = (readings) => {
+  const dynamicReadings = getDynamicReadings(readings);
+  if (dynamicReadings.length < 2) return null;
+
+  const meanX =
+    dynamicReadings.reduce((sum, reading) => sum + reading.x, 0) /
+    dynamicReadings.length;
+  const meanY =
+    dynamicReadings.reduce((sum, reading) => sum + reading.y, 0) /
+    dynamicReadings.length;
+  const denominator = dynamicReadings.length - 1;
+  let varianceX = 0;
+  let varianceY = 0;
+  let covarianceXY = 0;
+
+  dynamicReadings.forEach((reading) => {
+    const centeredX = reading.x - meanX;
+    const centeredY = reading.y - meanY;
+    varianceX += centeredX * centeredX;
+    varianceY += centeredY * centeredY;
+    covarianceXY += centeredX * centeredY;
+  });
+
+  varianceX /= denominator;
+  varianceY /= denominator;
+  covarianceXY /= denominator;
+
+  const trace = varianceX + varianceY;
+  const discriminant = Math.sqrt(
+    Math.max(
+      0,
+      (varianceX - varianceY) ** 2 + 4 * covarianceXY ** 2
+    )
+  );
+  // The bivariate-normal 95% ellipse area is pi * chi-square(2) * sqrt(det(covariance)).
+  const largestEigenvalue = Math.max(0, (trace + discriminant) / 2);
+  const smallestEigenvalue = Math.max(0, (trace - discriminant) / 2);
+
+  return (
+    Math.PI *
+    CONFIDENCE_95_CHI_SQUARE *
+    Math.sqrt(largestEigenvalue * smallestEigenvalue)
+  );
+};
+
+const calculateMeanAbsoluteJerk = (readings) => {
+  const dynamicReadings = getDynamicReadings(readings);
+  if (dynamicReadings.length < 3) return null;
+
+  // Differentiate angular velocity into acceleration, then acceleration into jerk.
+  const angularAccelerations = [];
+  for (let index = 0; index < dynamicReadings.length - 1; index += 1) {
+    const current = dynamicReadings[index];
+    const next = dynamicReadings[index + 1];
+    const intervalSeconds = (next.elapsedMs - current.elapsedMs) / 1000;
+    if (intervalSeconds <= 0) continue;
+
+    angularAccelerations.push({
+      elapsedMs: (current.elapsedMs + next.elapsedMs) / 2,
+      x: (next.x - current.x) / intervalSeconds,
+      y: (next.y - current.y) / intervalSeconds,
+      z: (next.z - current.z) / intervalSeconds,
+    });
+  }
+
+  if (angularAccelerations.length < 2) return null;
+
+  let totalJerkMagnitude = 0;
+  let jerkCount = 0;
+  for (let index = 0; index < angularAccelerations.length - 1; index += 1) {
+    const current = angularAccelerations[index];
+    const next = angularAccelerations[index + 1];
+    const intervalSeconds = (next.elapsedMs - current.elapsedMs) / 1000;
+    if (intervalSeconds <= 0) continue;
+
+    const jerkX = (next.x - current.x) / intervalSeconds;
+    const jerkY = (next.y - current.y) / intervalSeconds;
+    const jerkZ = (next.z - current.z) / intervalSeconds;
+    totalJerkMagnitude += Math.sqrt(jerkX ** 2 + jerkY ** 2 + jerkZ ** 2);
+    jerkCount += 1;
+  }
+
+  return jerkCount === 0 ? null : totalJerkMagnitude / jerkCount;
+};
+
+const calculateMeanSwayVelocity = (readings) => {
+  const dynamicReadings = getDynamicReadings(readings);
+  if (dynamicReadings.length < 2) return null;
+
+  const durationSeconds =
+    (dynamicReadings[dynamicReadings.length - 1].elapsedMs -
+      dynamicReadings[0].elapsedMs) /
+    1000;
+  if (durationSeconds <= 0) return null;
+
+  // This is the X/Y angular-velocity path length, not a direct body-sway measurement.
+  let pathLength = 0;
+  for (let index = 1; index < dynamicReadings.length; index += 1) {
+    const previous = dynamicReadings[index - 1];
+    const current = dynamicReadings[index];
+    pathLength += Math.sqrt(
+      (current.x - previous.x) ** 2 + (current.y - previous.y) ** 2
+    );
+  }
+
+  return pathLength / durationSeconds;
+};
+
+const calculateAssessmentMetrics = (readings, filteredReadings) => ({
+  durationSeconds:
+    readings.length > 0
+      ? readings[readings.length - 1].elapsedMs / 1000
+      : 0,
+  readingCount: readings.length,
+  rmsX: calculateRms(filteredReadings, 'x'),
+  rmsY: calculateRms(filteredReadings, 'y'),
+  confidenceEllipseArea95: calculateConfidenceEllipseArea95(filteredReadings),
+  meanAbsoluteJerk: calculateMeanAbsoluteJerk(filteredReadings),
+  meanSwayVelocity: calculateMeanSwayVelocity(filteredReadings),
+});
 
 function TimeSeriesChart({ readings }) {
   const points = downsample(readings);
@@ -334,6 +465,7 @@ export default function App() {
   const [assessmentResults, setAssessmentResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
   const beepPlayer = useAudioPlayer(null);
+  const beepFilesRef = useRef({});
   const readingsRef = useRef([]);
   const startedAtRef = useRef(0);
   const subscriptionRef = useRef(null);
@@ -351,31 +483,35 @@ export default function App() {
     };
   }, []);
 
-  const playBeep = async (playbackRate) => {
+  const playBeep = async (name, audioBase64) => {
     if (!FileSystem.cacheDirectory) {
       throw new Error('Não foi possível acessar o armazenamento temporário.');
     }
 
-    const beepUri = `${FileSystem.cacheDirectory}avaliacao-beep.wav`;
-    await FileSystem.writeAsStringAsync(beepUri, BEEP_WAV_BASE64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    let beepUri = beepFilesRef.current[name];
+    if (!beepUri) {
+      beepUri = `${FileSystem.cacheDirectory}avaliacao-${name}.wav`;
+      await FileSystem.writeAsStringAsync(beepUri, audioBase64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      beepFilesRef.current[name] = beepUri;
+    }
+
     await setAudioModeAsync({
       playsInSilentMode: true,
       interruptionMode: 'duckOthers',
     });
 
     beepPlayer.volume = 0.35;
-    beepPlayer.setPlaybackRate(playbackRate);
     beepPlayer.replace({ uri: beepUri });
     beepPlayer.play();
-    await wait(Math.ceil(200 / playbackRate));
+    await wait(140);
   };
 
   const playDoubleBeep = async () => {
-    await playBeep(1.5);
+    await playBeep('dinamico', DYNAMIC_START_BEEP_WAV_BASE64);
     await wait(100);
-    await playBeep(1.5);
+    await playBeep('dinamico', DYNAMIC_START_BEEP_WAV_BASE64);
   };
 
   const startRecording = () => {
@@ -417,7 +553,7 @@ export default function App() {
         seconds -= 1
       ) {
         setCountdown(seconds);
-        await playBeep(0.75);
+        await playBeep('preparo', PREPARATION_BEEP_WAV_BASE64);
         if (!mountedRef.current || runToken !== runTokenRef.current) return;
 
         if (seconds > 1) {
@@ -428,13 +564,39 @@ export default function App() {
 
       setCountdown(null);
       setStatus('startingStatic');
-      await playBeep(1.25);
+      await playBeep('estatico', STATIC_START_BEEP_WAV_BASE64);
       if (!mountedRef.current || runToken !== runTokenRef.current) return;
 
       startRecording();
-      await wait(STATIC_PHASE_DURATION_MS);
-      if (!mountedRef.current || runToken !== runTokenRef.current) return;
+      let staticTickSoundFailed = false;
+      for (
+        let seconds = STATIC_PHASE_DURATION_MS / 1000;
+        seconds > 0;
+        seconds -= 1
+      ) {
+        setCountdown(seconds);
+        try {
+          await playBeep('preparo', PREPARATION_BEEP_WAV_BASE64);
+        } catch (error) {
+          if (!staticTickSoundFailed) {
+            staticTickSoundFailed = true;
+            console.error('Falha ao reproduzir o beep da fase estática:', error);
+            Alert.alert(
+              'Sinal sonoro indisponível',
+              'A captura estática continua. Mantenha-se parado até o aviso para andar.'
+            );
+          }
+        }
+        if (!mountedRef.current || runToken !== runTokenRef.current) return;
 
+        const elapsedMs = Date.now() - startedAtRef.current;
+        const nextTickAtMs =
+          (STATIC_PHASE_DURATION_MS / 1000 - seconds + 1) * 1000;
+        await wait(Math.max(0, nextTickAtMs - elapsedMs));
+        if (!mountedRef.current || runToken !== runTokenRef.current) return;
+      }
+
+      setCountdown(null);
       setStatus('dynamic');
       try {
         await playDoubleBeep();
@@ -460,7 +622,7 @@ export default function App() {
     }
   };
 
-  const exportReadings = async (readings) => {
+  const exportReadings = async (readings, metrics) => {
     if (!FileSystem.cacheDirectory) {
       throw new Error('Não foi possível acessar o armazenamento temporário.');
     }
@@ -483,6 +645,27 @@ export default function App() {
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Avaliação');
+    const summaryWorksheet = XLSX.utils.aoa_to_sheet([
+      [
+        'Duração total (s)',
+        'Leituras',
+        'RMS X dinâmico (rad/s)',
+        'RMS Y dinâmico (rad/s)',
+        'Área elipse 95% X/Y ((rad/s)^2)',
+        'Jerk médio absoluto (rad/s^3)',
+        'Velocidade média X/Y (rad/s^2)',
+      ],
+      [
+        metrics.durationSeconds,
+        metrics.readingCount,
+        metrics.rmsX,
+        metrics.rmsY,
+        metrics.confidenceEllipseArea95,
+        metrics.meanAbsoluteJerk,
+        metrics.meanSwayVelocity,
+      ],
+    ]);
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Resumo');
 
     const base64 = XLSX.write(workbook, {
       bookType: 'xlsx',
@@ -507,10 +690,10 @@ export default function App() {
     });
   };
 
-  const shareReadings = async (readings) => {
+  const shareReadings = async (readings, metrics) => {
     setExportStatus('exporting');
     try {
-      await exportReadings(readings);
+      await exportReadings(readings, metrics);
       if (!mountedRef.current) return;
       setExportStatus('done');
     } catch (error) {
@@ -534,14 +717,17 @@ export default function App() {
     readingsRef.current = [];
     const offsets = getStaticOffsets(completedReadings);
     const filteredReadings = filterReadingsEma(completedReadings, offsets);
+    const metrics = calculateAssessmentMetrics(
+      completedReadings,
+      filteredReadings
+    );
     setAssessmentResults({
       readings: completedReadings,
       filteredReadings,
-      rmsX: calculateRms(filteredReadings, 'x'),
-      rmsY: calculateRms(filteredReadings, 'y'),
+      metrics,
     });
     setStatus('results');
-    shareReadings(completedReadings);
+    shareReadings(completedReadings, metrics);
   };
 
   const handleMainAction = () => {
@@ -571,16 +757,11 @@ export default function App() {
   }[status];
 
   if (status === 'results' && assessmentResults) {
-    const { readings, filteredReadings, rmsX, rmsY } = assessmentResults;
+    const { readings, filteredReadings, metrics } = assessmentResults;
     const staticCount = readings.filter(
       (reading) => reading.phase === 'Estatico'
     ).length;
     const dynamicCount = readings.length - staticCount;
-    const durationMs = readings.reduce(
-      (maximum, reading) => Math.max(maximum, reading.elapsedMs),
-      0
-    );
-
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#F4F7F5" />
@@ -596,7 +777,7 @@ export default function App() {
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryValue}>
-                {(durationMs / 1000).toFixed(1)} s
+                {metrics.durationSeconds.toFixed(1)} s
               </Text>
               <Text style={styles.summaryLabel}>Duração</Text>
             </View>
@@ -614,16 +795,39 @@ export default function App() {
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>
-                {rmsX === null ? '—' : rmsX.toFixed(3)}
-              </Text>
+              <Text style={styles.summaryValue}>{formatMetric(metrics.rmsX)}</Text>
               <Text style={styles.summaryLabel}>RMS X dinâmico (rad/s)</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>
-                {rmsY === null ? '—' : rmsY.toFixed(3)}
-              </Text>
+              <Text style={styles.summaryValue}>{formatMetric(metrics.rmsY)}</Text>
               <Text style={styles.summaryLabel}>RMS Y dinâmico (rad/s)</Text>
+            </View>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryCard, styles.metricSummaryCard]}>
+              <Text style={[styles.summaryValue, styles.metricSummaryValue]}>
+                {formatMetric(metrics.confidenceEllipseArea95)}
+              </Text>
+              <Text style={styles.summaryLabel}>
+                Área da elipse 95% X/Y ((rad/s)²)
+              </Text>
+            </View>
+            <View style={[styles.summaryCard, styles.metricSummaryCard]}>
+              <Text style={[styles.summaryValue, styles.metricSummaryValue]}>
+                {formatMetric(metrics.meanAbsoluteJerk)}
+              </Text>
+              <Text style={styles.summaryLabel}>
+                Jerk médio absoluto (rad/s³)
+              </Text>
+            </View>
+            <View style={[styles.summaryCard, styles.metricSummaryCard]}>
+              <Text style={[styles.summaryValue, styles.metricSummaryValue]}>
+                {formatMetric(metrics.meanSwayVelocity)}
+              </Text>
+              <Text style={styles.summaryLabel}>
+                Velocidade média X/Y (rad/s²)
+              </Text>
             </View>
           </View>
 
@@ -642,8 +846,11 @@ export default function App() {
 
           <Text style={styles.disclaimer}>
             Estes gráficos mostram a rotação do celular registrada pelo
-            giroscópio, com o offset da fase estática removido. Eles não medem
-            diretamente o equilíbrio corporal e não fornecem diagnóstico.
+            giroscópio, com o offset da fase estática removido. A elipse de 95%
+            pressupõe uma distribuição aproximadamente normal dos dados. As
+            métricas angulares são indicadores descritivos do movimento
+            registrado, não medem diretamente o equilíbrio corporal e não
+            fornecem diagnóstico.
           </Text>
 
           <TouchableOpacity
@@ -651,7 +858,7 @@ export default function App() {
               styles.secondaryButton,
               exportStatus === 'exporting' && styles.disabledButton,
             ]}
-            onPress={() => shareReadings(readings)}
+            onPress={() => shareReadings(readings, metrics)}
             disabled={exportStatus === 'exporting'}
             accessibilityRole="button"
             accessibilityState={{ disabled: exportStatus === 'exporting' }}
@@ -810,10 +1017,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 8,
   },
+  metricSummaryCard: {
+    paddingHorizontal: 4,
+  },
   summaryValue: {
     color: '#142D25',
     fontSize: 20,
     fontWeight: '800',
+  },
+  metricSummaryValue: {
+    fontSize: 16,
   },
   summaryLabel: {
     color: '#40564D',

@@ -17,7 +17,7 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 
 - Interface minimalista e de alto contraste, com botão central grande e texto legível, pensada para facilitar o uso por pessoas idosas.
 - Um beep a cada segundo durante a contagem regressiva visual de três segundos.
-- Beep diferente para indicar o começo dos cinco segundos de captura estática.
+- Beep diferente para indicar o começo da captura estática e um beep por segundo durante os cinco segundos parado.
 - Registro da fase estática durante os primeiros cinco segundos da captura.
 - Beep duplo diferente ao fim da fase estática e aviso para começar a andar.
 - Captura contínua dos eixos X, Y e Z do giroscópio, com intervalo configurado de 50 ms.
@@ -77,12 +77,16 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 
 1. Abra o aplicativo e posicione o celular conforme a orientação do profissional responsável pela avaliação.
 2. Toque em **Iniciar Avaliação**. O aplicativo verifica o giroscópio e inicia a contagem regressiva com um beep em cada segundo: **3, 2, 1**.
-3. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; as leituras são identificadas como `Estatico`.
-5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
+3. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
+4. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
 6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
 7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
 
-Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão dos eixos laterais e anteroposteriores, com a média da fase estática removida e uma suavização EMA de 3 Hz aplicada para visualização e cálculo do RMS. Os eixos do estabilograma podem ser alterados pelas constantes `EIXO_LATERAL` e `EIXO_ANTERO_POSTERIOR` no início de `App.js`. A tela também informa duração, leituras por fase e RMS dinâmico dos dois eixos. São visualizações da rotação do aparelho/cabeça, não uma medição direta do equilíbrio corporal ou um diagnóstico. A planilha contém os valores originais, sem suavização, nas colunas `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
+Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão dos eixos laterais e anteroposteriores, com a média da fase estática removida e uma suavização EMA de 3 Hz aplicada para visualização e cálculo das métricas. Os eixos do estabilograma podem ser alterados pelas constantes `EIXO_LATERAL` e `EIXO_ANTERO_POSTERIOR` no início de `App.js`. A tela informa duração, leituras por fase e RMS dinâmico dos eixos X/Y. Os resultados também incluem a área da elipse de confiança de 95% X/Y, o jerk médio absoluto tridimensional e a velocidade média da trajetória angular X/Y. A área da elipse usa a aproximação qui-quadrado de 5,991 para uma distribuição bivariada aproximadamente normal; o jerk deriva a velocidade angular duas vezes usando os timestamps; e a velocidade é o comprimento da trajetória X/Y do giroscópio dividido pelo tempo da fase dinâmica. As unidades são, respectivamente, (rad/s)², rad/s³ e rad/s².
+
+O Excel mantém a primeira aba `Avaliação` com as leituras originais, sem suavização, nas colunas `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`; a aba `Resumo` contém os cabeçalhos e valores das métricas da avaliação. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
+
+Essas métricas descrevem o movimento angular registrado pelo celular e não representam uma medição direta do centro de pressão ou do equilíbrio corporal, nem fornecem diagnóstico. Sua interpretação clínica deve ser feita por profissionais qualificados.
 
 ## Análise dos dados com Python
 
