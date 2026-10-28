@@ -5,13 +5,11 @@
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-F7DF1E?logo=javascript&logoColor=222222)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Plataformas](https://img.shields.io/badge/Plataformas-Android%20%7C%20iOS-3DDC84)](https://expo.dev/)
 
-Aplicativo móvel para captura e exportação de dados de movimentação cervical, desenvolvido como projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, em caráter interdisciplinar com alunos de Fisioterapia.
-
-Projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, desenvolvido em caráter interdisciplinar com alunos de Fisioterapia.
+Aplicativo móvel para captura e exportação de dados de movimentação cervical, desenvolvido como projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, em caráter interdisciplinar com alunos de Fisioterapia da UNESP.
 
 - **Desenvolvedor:** Gustavo Jacó
-- **Professor orientador:** Will Machado
-- **Colaboração interdisciplinar:** alunos de Fisioterapia
+- **Professor orientador:** Will Ricardo dos Santos Machado
+- **Colaboração interdisciplinar:** alunos de Fisioterapia UNESP
 
 ---
 
