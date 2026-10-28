@@ -7,6 +7,14 @@
 
 Aplicativo móvel para captura e exportação de dados de movimentação cervical, desenvolvido como projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, em caráter interdisciplinar com alunos de Fisioterapia.
 
+Projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, desenvolvido em caráter interdisciplinar com alunos de Fisioterapia.
+
+- **Desenvolvedor:** Gustavo Jacó
+- **Professor orientador:** Will Machado
+- **Colaboração interdisciplinar:** alunos de Fisioterapia
+
+---
+
 ## Sobre o projeto
 
 A avaliação do equilíbrio pode envolver a observação dos movimentos da cabeça durante uma tarefa clínica. Este projeto explora o uso do giroscópio de um smartphone para registrar a movimentação cervical de pessoas idosas e gerar telemetria que possa ser analisada posteriormente pela equipe de Fisioterapia.
@@ -126,12 +134,6 @@ python analyze_equilibrio.py caminho/para/avaliacao.xlsx --saida caminho/para/gr
 O filtro requer que a frequência de amostragem estimada a partir da coluna de tempo seja superior a 10 Hz. A taxa é estimada pela mediana dos intervalos entre amostras. Os gráficos representam a velocidade angular do giroscópio e servem como visualização da telemetria; não são uma medida clínica de centro de pressão nem fornecem diagnóstico.
 
 ## Equipe e créditos
-
-Projeto de estágio obrigatório do curso de Ciência da Computação da PUC Minas, desenvolvido em caráter interdisciplinar com alunos de Fisioterapia.
-
-- **Desenvolvedor:** Gustavo Jacó
-- **Professor orientador:** Will Machado
-- **Colaboração interdisciplinar:** alunos de Fisioterapia
 
 ---
 
