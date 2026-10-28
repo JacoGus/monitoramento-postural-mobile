@@ -16,9 +16,10 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 ## Funcionalidades
 
 - Interface minimalista e de alto contraste, com botão central grande e texto legível, pensada para facilitar o uso por pessoas idosas.
-- Beep de preparação e aviso para ficar parado com o celular na cabeça.
+- Um beep a cada segundo durante a contagem regressiva visual de três segundos.
+- Beep diferente para indicar o começo dos cinco segundos de captura estática.
 - Registro da fase estática durante os primeiros cinco segundos da captura.
-- Beep duplo ao fim da fase estática e aviso para começar a andar.
+- Beep duplo diferente ao fim da fase estática e aviso para começar a andar.
 - Captura contínua dos eixos X, Y e Z do giroscópio, com intervalo configurado de 50 ms.
 - Registro do tempo decorrido, em milissegundos, e da fase (`Estatico` ou `Dinamico`) em cada leitura.
 - Geração automática de planilha Excel (`.xlsx`) ao encerrar a avaliação.
@@ -74,11 +75,11 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 ## Como usar
 
 1. Abra o aplicativo e posicione o celular conforme a orientação do profissional responsável pela avaliação.
-2. Toque em **Iniciar Avaliação**. Após verificar o giroscópio e emitir um beep, o aplicativo inicia a captura e orienta: **Ficar Parado com o celular na cabeça**.
-3. Durante os primeiros cinco segundos, as leituras são identificadas como `Estatico`.
-4. Ao completar cinco segundos, o app emite um beep duplo, exibe **Pode Andar** e continua a captura, agora identificando as leituras como `Dinamico`.
-5. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
-6. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
+2. Toque em **Iniciar Avaliação**. O aplicativo verifica o giroscópio e inicia a contagem regressiva com um beep em cada segundo: **3, 2, 1**.
+3. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; as leituras são identificadas como `Estatico`.
+5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
+6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
+7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
 
 Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão X × Y, com a média da fase estática removida para facilitar a visualização. A tela também informa duração e contagem de leituras por fase. São visualizações da rotação do aparelho/cabeça, não uma medição direta do equilíbrio corporal ou um diagnóstico. A planilha contém `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
 

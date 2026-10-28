@@ -17,6 +17,7 @@ import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg
 import * as XLSX from 'xlsx';
 
 const UPDATE_INTERVAL_MS = 50;
+const PREPARATION_COUNTDOWN_SECONDS = 3;
 const STATIC_PHASE_DURATION_MS = 5000;
 const CHART_WIDTH = 360;
 const SERIES_CHART_HEIGHT = 250;
@@ -284,6 +285,7 @@ function MovementScatterChart({ readings, offsets }) {
 
 export default function App() {
   const [status, setStatus] = useState('idle');
+  const [countdown, setCountdown] = useState(null);
   const [assessmentResults, setAssessmentResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
   const beepPlayer = useAudioPlayer(null);
@@ -353,7 +355,8 @@ export default function App() {
   const beginAssessment = async () => {
     const runToken = runTokenRef.current + 1;
     runTokenRef.current = runToken;
-    setStatus('starting');
+    setStatus('preparing');
+    setCountdown(null);
 
     try {
       if (!(await Gyroscope.isAvailableAsync())) {
@@ -362,7 +365,25 @@ export default function App() {
         );
       }
 
-      await playBeep(0.75);
+      setStatus('countdown');
+      for (
+        let seconds = PREPARATION_COUNTDOWN_SECONDS;
+        seconds > 0;
+        seconds -= 1
+      ) {
+        setCountdown(seconds);
+        await playBeep(0.75);
+        if (!mountedRef.current || runToken !== runTokenRef.current) return;
+
+        if (seconds > 1) {
+          await wait(1000 - Math.ceil(200 / 0.75));
+          if (!mountedRef.current || runToken !== runTokenRef.current) return;
+        }
+      }
+
+      setCountdown(null);
+      setStatus('startingStatic');
+      await playBeep(1.25);
       if (!mountedRef.current || runToken !== runTokenRef.current) return;
 
       startRecording();
@@ -385,6 +406,7 @@ export default function App() {
       console.error('Falha ao iniciar a avaliação:', error);
       subscriptionRef.current?.remove();
       subscriptionRef.current = null;
+      setCountdown(null);
       setStatus('idle');
       Alert.alert(
         'Não foi possível iniciar',
@@ -480,14 +502,18 @@ export default function App() {
 
   const buttonLabel = {
     idle: 'Iniciar Avaliação',
-    starting: 'Preparando avaliação...',
+    preparing: 'Preparando avaliação...',
+    countdown: 'Prepare-se',
+    startingStatic: 'Iniciando fase parada...',
     static: 'Parar Avaliação',
     dynamic: 'Parar Avaliação',
   }[status];
 
   const instruction = {
     idle: 'Posicione o celular com segurança e peça orientação ao profissional de saúde.',
-    starting: 'Aguarde o sinal sonoro para começar.',
+    preparing: 'Aguarde o beep para iniciar o preparo.',
+    countdown: 'Fique parado e mantenha o celular na cabeça.',
+    startingStatic: 'Fique parado com o celular na cabeça.',
     static: 'Ficar Parado com o celular na cabeça',
     dynamic: 'Pode Andar',
   }[status];
@@ -598,8 +624,21 @@ export default function App() {
         <View
           style={styles.center}
           accessibilityLiveRegion="polite"
-          accessibilityLabel={instruction}
+          accessibilityLabel={
+            countdown === null
+              ? instruction
+              : `${instruction} ${countdown}`
+          }
         >
+          {countdown !== null && (
+            <Text
+              style={styles.countdown}
+              accessibilityRole="text"
+              accessibilityLabel={`${countdown}`}
+            >
+              {countdown}
+            </Text>
+          )}
           <Text style={styles.instruction}>{instruction}</Text>
 
           <TouchableOpacity
@@ -607,15 +646,25 @@ export default function App() {
               styles.button,
               (status === 'static' || status === 'dynamic') &&
                 styles.stopButton,
-              status === 'starting' && styles.disabledButton,
+              (status === 'preparing' ||
+                status === 'countdown' ||
+                status === 'startingStatic') &&
+                styles.disabledButton,
             ]}
             onPress={handleMainAction}
-            disabled={status === 'starting'}
+            disabled={
+              status === 'preparing' ||
+              status === 'countdown' ||
+              status === 'startingStatic'
+            }
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel={buttonLabel}
             accessibilityState={{
-              disabled: status === 'starting',
+              disabled:
+                status === 'preparing' ||
+                status === 'countdown' ||
+                status === 'startingStatic',
             }}
           >
             <Text style={styles.buttonText}>{buttonLabel}</Text>
@@ -666,6 +715,12 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     maxWidth: 460,
     textAlign: 'center',
+  },
+  countdown: {
+    color: '#142D25',
+    fontSize: 112,
+    fontWeight: '800',
+    marginBottom: 18,
   },
   resultsContainer: {
     paddingHorizontal: 20,
