@@ -26,6 +26,7 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 - Compartilhamento do arquivo pela interface nativa do celular, para envio ou análise externa.
 - Exibição imediata no app de gráficos do movimento registrado, com resumo da duração e das leituras por fase.
 - Gráfico temporal dos três eixos e dispersão X × Y, com fases estática e dinâmica destacadas.
+- Suavização EMA dos dados exibidos e métricas RMS dos eixos configurados, calculadas somente na fase dinâmica.
 - Verificação da disponibilidade do giroscópio antes de iniciar a avaliação.
 - Script Python para calibrar os eixos pela fase estática, aplicar filtro Butterworth e gerar gráficos.
 
@@ -81,7 +82,7 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
 7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
 
-Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão X × Y, com a média da fase estática removida para facilitar a visualização. A tela também informa duração e contagem de leituras por fase. São visualizações da rotação do aparelho/cabeça, não uma medição direta do equilíbrio corporal ou um diagnóstico. A planilha contém `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
+Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão dos eixos laterais e anteroposteriores, com a média da fase estática removida e uma suavização EMA de 3 Hz aplicada para visualização e cálculo do RMS. Os eixos do estabilograma podem ser alterados pelas constantes `EIXO_LATERAL` e `EIXO_ANTERO_POSTERIOR` no início de `App.js`. A tela também informa duração, leituras por fase e RMS dinâmico dos dois eixos. São visualizações da rotação do aparelho/cabeça, não uma medição direta do equilíbrio corporal ou um diagnóstico. A planilha contém os valores originais, sem suavização, nas colunas `Tempo (ms)`, `Giroscópio X`, `Giroscópio Y`, `Giroscópio Z` e `Fase`. A transição de fase é determinada pelo tempo decorrido de cada leitura; o intervalo de atualização é configurado para 50 ms, embora a frequência efetiva possa variar conforme o dispositivo.
 
 ## Análise dos dados com Python
 

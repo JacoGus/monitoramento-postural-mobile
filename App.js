@@ -19,6 +19,14 @@ import * as XLSX from 'xlsx';
 const UPDATE_INTERVAL_MS = 50;
 const PREPARATION_COUNTDOWN_SECONDS = 3;
 const STATIC_PHASE_DURATION_MS = 5000;
+const EMA_CUTOFF_HZ = 3;
+const EIXO_LATERAL = 'x';
+const EIXO_ANTERO_POSTERIOR = 'y';
+const AXIS_LABELS = {
+  x: 'X',
+  y: 'Y',
+  z: 'Z',
+};
 const CHART_WIDTH = 360;
 const SERIES_CHART_HEIGHT = 250;
 const SCATTER_CHART_HEIGHT = 280;
@@ -69,7 +77,48 @@ const getStaticOffsets = (readings) => {
   );
 };
 
-function TimeSeriesChart({ readings, offsets }) {
+const filterReadingsEma = (readings, offsets) => {
+  const previousValues = { x: null, y: null, z: null };
+  let previousElapsedMs = null;
+
+  return readings.map((reading) => {
+    const elapsedSeconds =
+      previousElapsedMs === null
+        ? UPDATE_INTERVAL_MS / 1000
+        : Math.max(0, reading.elapsedMs - previousElapsedMs) / 1000;
+    // Derive alpha from each sensor timestamp so jitter in the sample interval is accounted for.
+    const alpha = 1 - Math.exp(-2 * Math.PI * EMA_CUTOFF_HZ * elapsedSeconds);
+    const filteredReading = { ...reading };
+
+    ['x', 'y', 'z'].forEach((axis) => {
+      const calibratedValue = reading[axis] - offsets[axis];
+      previousValues[axis] =
+        previousValues[axis] === null
+          ? calibratedValue
+          : previousValues[axis] +
+            alpha * (calibratedValue - previousValues[axis]);
+      filteredReading[axis] = previousValues[axis];
+    });
+
+    previousElapsedMs = reading.elapsedMs;
+    return filteredReading;
+  });
+};
+
+const calculateRms = (readings, axis) => {
+  const dynamicValues = readings
+    .filter((reading) => reading.phase === 'Dinamico')
+    .map((reading) => reading[axis]);
+
+  if (dynamicValues.length === 0) return null;
+
+  const meanSquare =
+    dynamicValues.reduce((sum, value) => sum + value * value, 0) /
+    dynamicValues.length;
+  return Math.sqrt(meanSquare);
+};
+
+function TimeSeriesChart({ readings }) {
   const points = downsample(readings);
   if (points.length < 2) {
     return <Text style={styles.chartEmpty}>Dados insuficientes para o gráfico.</Text>;
@@ -80,11 +129,7 @@ function TimeSeriesChart({ readings, offsets }) {
   const top = 20;
   const bottom = 198;
   const duration = Math.max(points[points.length - 1].elapsedMs, 1);
-  const allValues = points.flatMap((reading) => [
-    reading.x - offsets.x,
-    reading.y - offsets.y,
-    reading.z - offsets.z,
-  ]);
+  const allValues = points.flatMap((reading) => [reading.x, reading.y, reading.z]);
   const [minimum, maximum] = getPaddedDomain(allValues);
   const xPosition = (elapsedMs) => left + (elapsedMs / duration) * (right - left);
   const yPosition = (value) =>
@@ -100,7 +145,7 @@ function TimeSeriesChart({ readings, offsets }) {
     path: points
       .map((reading, index) => {
         const x = xPosition(reading.elapsedMs);
-        const y = yPosition(reading[axis] - offsets[axis]);
+        const y = yPosition(reading[axis]);
         return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' '),
@@ -164,7 +209,7 @@ function TimeSeriesChart({ readings, offsets }) {
           rotation="-90"
           origin={`13,${(top + bottom) / 2}`}
         >
-          rad/s (offset removido)
+          rad/s (filtrado e calibrado)
         </SvgText>
       </Svg>
       <View style={styles.phaseLegend}>
@@ -187,7 +232,7 @@ function TimeSeriesChart({ readings, offsets }) {
   );
 }
 
-function MovementScatterChart({ readings, offsets }) {
+function MovementScatterChart({ readings }) {
   if (readings.length === 0) {
     return <Text style={styles.chartEmpty}>Dados insuficientes para o gráfico.</Text>;
   }
@@ -196,13 +241,10 @@ function MovementScatterChart({ readings, offsets }) {
   const right = 282;
   const top = 18;
   const bottom = 222;
-  const corrected = readings.map((reading) => ({
-    ...reading,
-    centeredX: reading.x - offsets.x,
-    centeredY: reading.y - offsets.y,
-  }));
+  const xAxis = EIXO_LATERAL;
+  const yAxis = EIXO_ANTERO_POSTERIOR;
   const [minimum, maximum] = getPaddedDomain(
-    corrected.flatMap((reading) => [reading.centeredX, reading.centeredY])
+    readings.flatMap((reading) => [reading[xAxis], reading[yAxis]])
   );
   const position = (value) =>
     left + ((value - minimum) / (maximum - minimum)) * (right - left);
@@ -210,16 +252,19 @@ function MovementScatterChart({ readings, offsets }) {
   const yPosition = (value) =>
     bottom - ((value - minimum) / (maximum - minimum)) * (bottom - top);
   const staticPoints = downsample(
-    corrected.filter((reading) => reading.phase === 'Estatico'),
+    readings.filter((reading) => reading.phase === 'Estatico'),
     300
   );
   const dynamicPoints = downsample(
-    corrected.filter((reading) => reading.phase === 'Dinamico'),
+    readings.filter((reading) => reading.phase === 'Dinamico'),
     300
   );
 
   return (
-    <View accessible accessibilityLabel="Gráfico de dispersão dos eixos X e Y, separado por fase">
+    <View
+      accessible
+      accessibilityLabel={`Gráfico de dispersão dos eixos ${AXIS_LABELS[xAxis]} e ${AXIS_LABELS[yAxis]}, separado por fase`}
+    >
       <Svg width="100%" height={SCATTER_CHART_HEIGHT} viewBox={`0 0 ${CHART_WIDTH} ${SCATTER_CHART_HEIGHT}`}>
         {[0, 1, 2, 3, 4].map((index) => {
           const coordinate = left + (index / 4) * (right - left);
@@ -240,28 +285,28 @@ function MovementScatterChart({ readings, offsets }) {
         })}
         <Line x1={left} y1={bottom} x2={right} y2={bottom} stroke="#52645C" strokeWidth={1.5} />
         <Line x1={left} y1={top} x2={left} y2={bottom} stroke="#52645C" strokeWidth={1.5} />
-        {staticPoints.map((reading, index) => (
-          <Circle
-            key={`static-${index}`}
-            cx={xPosition(reading.centeredX)}
-            cy={yPosition(reading.centeredY)}
-            r={2.5}
-            fill={STATIC_COLOR}
-            opacity={0.55}
-          />
-        ))}
         {dynamicPoints.map((reading, index) => (
           <Circle
             key={`dynamic-${index}`}
-            cx={xPosition(reading.centeredX)}
-            cy={yPosition(reading.centeredY)}
-            r={2.5}
+            cx={xPosition(reading[xAxis])}
+            cy={yPosition(reading[yAxis])}
+            r={2}
             fill={DYNAMIC_COLOR}
-            opacity={0.55}
+            opacity={0.4}
+          />
+        ))}
+        {staticPoints.map((reading, index) => (
+          <Circle
+            key={`static-${index}`}
+            cx={xPosition(reading[xAxis])}
+            cy={yPosition(reading[yAxis])}
+            r={3.2}
+            fill={STATIC_COLOR}
+            opacity={0.85}
           />
         ))}
         <SvgText x={(left + right) / 2} y={SCATTER_CHART_HEIGHT - 7} textAnchor="middle" fontSize={11} fill="#263D34">
-          Giroscópio X (rad/s)
+          Giroscópio {AXIS_LABELS[xAxis]} (rad/s)
         </SvgText>
         <SvgText
           x={13}
@@ -272,7 +317,7 @@ function MovementScatterChart({ readings, offsets }) {
           rotation="-90"
           origin={`13,${(top + bottom) / 2}`}
         >
-          Giroscópio Y (rad/s)
+          Giroscópio {AXIS_LABELS[yAxis]} (rad/s)
         </SvgText>
       </Svg>
       <View style={styles.scatterLegend}>
@@ -487,7 +532,14 @@ export default function App() {
     runTokenRef.current += 1;
     const completedReadings = readingsRef.current.slice();
     readingsRef.current = [];
-    setAssessmentResults(completedReadings);
+    const offsets = getStaticOffsets(completedReadings);
+    const filteredReadings = filterReadingsEma(completedReadings, offsets);
+    setAssessmentResults({
+      readings: completedReadings,
+      filteredReadings,
+      rmsX: calculateRms(filteredReadings, 'x'),
+      rmsY: calculateRms(filteredReadings, 'y'),
+    });
     setStatus('results');
     shareReadings(completedReadings);
   };
@@ -519,12 +571,12 @@ export default function App() {
   }[status];
 
   if (status === 'results' && assessmentResults) {
-    const offsets = getStaticOffsets(assessmentResults);
-    const staticCount = assessmentResults.filter(
+    const { readings, filteredReadings, rmsX, rmsY } = assessmentResults;
+    const staticCount = readings.filter(
       (reading) => reading.phase === 'Estatico'
     ).length;
-    const dynamicCount = assessmentResults.length - staticCount;
-    const durationMs = assessmentResults.reduce(
+    const dynamicCount = readings.length - staticCount;
+    const durationMs = readings.reduce(
       (maximum, reading) => Math.max(maximum, reading.elapsedMs),
       0
     );
@@ -549,7 +601,7 @@ export default function App() {
               <Text style={styles.summaryLabel}>Duração</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{assessmentResults.length}</Text>
+              <Text style={styles.summaryValue}>{readings.length}</Text>
               <Text style={styles.summaryLabel}>Leituras</Text>
             </View>
             <View style={styles.summaryCard}>
@@ -560,17 +612,32 @@ export default function App() {
             </View>
           </View>
 
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Movimento ao longo do tempo</Text>
-            <TimeSeriesChart readings={assessmentResults} offsets={offsets} />
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryValue}>
+                {rmsX === null ? '—' : rmsX.toFixed(3)}
+              </Text>
+              <Text style={styles.summaryLabel}>RMS X dinâmico (rad/s)</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryValue}>
+                {rmsY === null ? '—' : rmsY.toFixed(3)}
+              </Text>
+              <Text style={styles.summaryLabel}>RMS Y dinâmico (rad/s)</Text>
+            </View>
           </View>
 
           <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>Movimento dos eixos X × Y</Text>
-            <MovementScatterChart
-              readings={assessmentResults}
-              offsets={offsets}
-            />
+            <Text style={styles.chartTitle}>Movimento ao longo do tempo</Text>
+            <TimeSeriesChart readings={filteredReadings} />
+          </View>
+
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>
+              Movimento dos eixos {AXIS_LABELS[EIXO_LATERAL]} ×{' '}
+              {AXIS_LABELS[EIXO_ANTERO_POSTERIOR]}
+            </Text>
+            <MovementScatterChart readings={filteredReadings} />
           </View>
 
           <Text style={styles.disclaimer}>
@@ -584,7 +651,7 @@ export default function App() {
               styles.secondaryButton,
               exportStatus === 'exporting' && styles.disabledButton,
             ]}
-            onPress={() => shareReadings(assessmentResults)}
+            onPress={() => shareReadings(readings)}
             disabled={exportStatus === 'exporting'}
             accessibilityRole="button"
             accessibilityState={{ disabled: exportStatus === 'exporting' }}
