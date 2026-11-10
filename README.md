@@ -31,8 +31,8 @@ O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a
 - Formulário de identificação com nome, CPF/RG opcional, tipo de teste e tempo opcional de coleta.
 - Classificação da coleta como `Padrão` (modelo de treinamento) ou `Avaliação`.
 - Histórico persistente no dispositivo, com data e hora, identificação, leituras e métricas; contador de coletas na tela inicial.
-- Geração automática de planilha Excel (`.xlsx`) ao encerrar a avaliação.
-- Compartilhamento do arquivo pela interface nativa do celular, para envio ou análise externa.
+- Encerramento automático da coleta quando o tempo informado no formulário expira; sem tempo informado, o encerramento é manual.
+- Exportação e compartilhamento de arquivos Excel (`.xlsx`) e CSV pela interface nativa do celular.
 - Exibição imediata no app de gráficos do movimento registrado, com resumo da duração e das leituras por fase.
 - Gráfico temporal dos três eixos e dispersão X × Y, com fases estática e dinâmica destacadas.
 - Suavização EMA dos dados exibidos e métricas RMS dos eixos configurados, calculadas somente na fase dinâmica.
@@ -88,10 +88,10 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 1. Abra o aplicativo e posicione o celular conforme a orientação do profissional responsável pela avaliação.
 2. Preencha o nome e o tipo de teste. CPF/RG é opcional; informe um tempo em segundos para limitar a coleta ou deixe o campo vazio para encerrá-la manualmente. Use a chave para selecionar `Padrão` ou `Avaliação`.
 3. Toque em **Iniciar Avaliação**. O aplicativo registra a data e hora de início, verifica o giroscópio e inicia a contagem regressiva com um beep em cada segundo: **3, 2, 1**.
-4. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
+4. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado e posicione o dispositivo conforme orientação durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
 5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
-6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar; se informou um tempo, a captura encerra automaticamente ao atingi-lo. Os gráficos e o resumo ficam disponíveis no aplicativo, e a coleta concluída é salva no histórico local.
-7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação. A tela inicial mostra a quantidade de coletas armazenadas no dispositivo.
+6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar; se informou um tempo, a captura encerra automaticamente após esse período de gravação. Os gráficos e o resumo ficam disponíveis no aplicativo, e a coleta concluída é salva no histórico local.
+7. O menu nativo de compartilhamento da planilha `.xlsx` é aberto ao encerrar a coleta. Na tela de resultados, use **Exportar XLSX** ou **Exportar CSV** para compartilhar qualquer formato novamente, ou inicie uma nova avaliação. O CSV inclui a identificação do indivíduo e cada leitura do giroscópio. A tela inicial mostra a quantidade de coletas armazenadas no dispositivo.
 
 O histórico é mantido localmente pelo AsyncStorage e não é sincronizado com um servidor. O AsyncStorage não criptografa os dados; considere essa característica ao registrar informações pessoais identificáveis.
 

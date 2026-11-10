@@ -480,6 +480,9 @@ export default function App() {
   const readingsRef = useRef([]);
   const startedAtRef = useRef(0);
   const subscriptionRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const recordingActiveRef = useRef(false);
+  const exportActiveRef = useRef(false);
   const pendingCollectionRef = useRef(null);
   const mountedRef = useRef(true);
   const runTokenRef = useRef(0);
@@ -505,6 +508,11 @@ export default function App() {
     return () => {
       mountedRef.current = false;
       runTokenRef.current += 1;
+      if (recordingTimerRef.current !== null) {
+        clearTimeout(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      recordingActiveRef.current = false;
       subscriptionRef.current?.remove();
       subscriptionRef.current = null;
     };
@@ -549,13 +557,6 @@ export default function App() {
     setExportStatus('idle');
     subscriptionRef.current = Gyroscope.addListener(({ x, y, z }) => {
       const elapsedMs = Date.now() - startedAtRef.current;
-      const durationSeconds =
-        pendingCollectionRef.current?.durationSeconds ?? null;
-      if (durationSeconds !== null && elapsedMs >= durationSeconds * 1000) {
-        finishAssessment();
-        return;
-      }
-
       readingsRef.current.push({
         elapsedMs,
         x,
@@ -564,6 +565,13 @@ export default function App() {
         phase: elapsedMs < STATIC_PHASE_DURATION_MS ? 'Estatico' : 'Dinamico',
       });
     });
+    recordingActiveRef.current = true;
+    const durationSeconds = pendingCollectionRef.current.durationSeconds;
+    if (durationSeconds !== null) {
+      recordingTimerRef.current = setTimeout(() => {
+        void finishAssessment();
+      }, durationSeconds * 1000);
+    }
     setStatus('static');
   };
 
@@ -691,6 +699,12 @@ export default function App() {
       console.error('Falha ao iniciar a avaliação:', error);
       subscriptionRef.current?.remove();
       subscriptionRef.current = null;
+      if (recordingTimerRef.current !== null) {
+        clearTimeout(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      recordingActiveRef.current = false;
+      pendingCollectionRef.current = null;
       setCountdown(null);
       setStatus('idle');
       Alert.alert(
@@ -768,26 +782,97 @@ export default function App() {
     });
   };
 
-  const shareReadings = async (readings, metrics) => {
-    setExportStatus('exporting');
+  const escapeCsvCell = (value) =>
+    `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const protectCsvText = (value) =>
+    /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+
+  const exportCsv = async (readings, collection) => {
+    if (!FileSystem.cacheDirectory) {
+      throw new Error('Não foi possível acessar o armazenamento temporário.');
+    }
+
+    const headers = [
+      'Nome do indivíduo',
+      'CPF/RG',
+      'Tipo de teste',
+      'Tipo de coleta',
+      'Data/hora da coleta',
+      'Tempo configurado (s)',
+      'Tempo (ms)',
+      'Giroscópio X (rad/s)',
+      'Giroscópio Y (rad/s)',
+      'Giroscópio Z (rad/s)',
+      'Fase',
+    ];
+    const dataRows = (readings.length > 0 ? readings : [null]).map((reading) => [
+      protectCsvText(collection.participant.name),
+      protectCsvText(collection.participant.documentId),
+      protectCsvText(collection.testType),
+      collection.collectionType,
+      collection.timestamp,
+      collection.durationSeconds ?? '',
+      reading?.elapsedMs ?? '',
+      reading?.x ?? '',
+      reading?.y ?? '',
+      reading?.z ?? '',
+      reading?.phase ?? '',
+    ]);
+    const csv = [headers, ...dataRows]
+      .map((row) => row.map(escapeCsvCell).join(','))
+      .join('\r\n');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileUri = `${FileSystem.cacheDirectory}avaliacao-equilibrio-${timestamp}.csv`;
+
+    await FileSystem.writeAsStringAsync(fileUri, `\uFEFF${csv}`, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    if (!(await Sharing.isAvailableAsync())) {
+      throw new Error('O compartilhamento não está disponível neste dispositivo.');
+    }
+
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'text/csv',
+      dialogTitle: 'Compartilhar avaliação CSV',
+      UTI: 'public.comma-separated-values-text',
+    });
+  };
+
+  const shareExport = async (format, readings, metrics, collection) => {
+    if (exportActiveRef.current) return;
+    exportActiveRef.current = true;
+    setExportStatus(`exporting-${format}`);
     try {
-      await exportReadings(readings, metrics);
+      if (format === 'csv') {
+        await exportCsv(readings, collection);
+      } else {
+        await exportReadings(readings, metrics);
+      }
       if (!mountedRef.current) return;
-      setExportStatus('done');
+      setExportStatus(`done-${format}`);
     } catch (error) {
       if (!mountedRef.current) return;
-      console.error('Falha ao exportar avaliação:', error);
-      setExportStatus('error');
+      console.error(`Falha ao exportar avaliação ${format.toUpperCase()}:`, error);
+      setExportStatus(`error-${format}`);
       Alert.alert(
         'Falha ao exportar',
-        `Os gráficos continuam disponíveis no app. Tente compartilhar a planilha novamente.\n\n${
+        `Os resultados continuam disponíveis no app. Tente exportar novamente.\n\n${
           error instanceof Error ? error.message : String(error)
         }`
       );
+    } finally {
+      exportActiveRef.current = false;
     }
   };
 
   const finishAssessment = async () => {
+    if (!recordingActiveRef.current) return;
+    recordingActiveRef.current = false;
+    if (recordingTimerRef.current !== null) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
     runTokenRef.current += 1;
@@ -813,6 +898,9 @@ export default function App() {
       collection,
     });
     setStatus('results');
+    if (mountedRef.current) {
+      shareExport('xlsx', completedReadings, metrics, collection);
+    }
 
     try {
       const savedCollections = await saveCollection(collection);
@@ -831,9 +919,6 @@ export default function App() {
       }
     }
 
-    if (mountedRef.current) {
-      shareReadings(completedReadings, metrics);
-    }
   };
 
   const handleMainAction = () => {
@@ -861,9 +946,9 @@ export default function App() {
   const instruction = {
     idle: 'Posicione o celular com segurança e peça orientação ao profissional de saúde.',
     preparing: 'Aguarde o beep para iniciar o preparo.',
-    countdown: 'Fique parado e mantenha o celular na cabeça.',
-    startingStatic: 'Fique parado com o celular na cabeça.',
-    static: 'Ficar Parado com o celular na cabeça',
+    countdown: 'Mantenha-se parado e posicione o dispositivo conforme orientação.',
+    startingStatic: 'Posicione o dispositivo conforme orientação.',
+    static: 'Mantenha-se parado conforme orientação.',
     dynamic: 'Pode Andar',
   }[status];
 
@@ -985,19 +1070,44 @@ export default function App() {
           <TouchableOpacity
             style={[
               styles.secondaryButton,
-              exportStatus === 'exporting' && styles.disabledButton,
+              exportStatus.startsWith('exporting-') && styles.disabledButton,
             ]}
-            onPress={() => shareReadings(readings, metrics)}
-            disabled={exportStatus === 'exporting'}
+            onPress={() =>
+              shareExport('xlsx', readings, metrics, collection)
+            }
+            disabled={exportStatus.startsWith('exporting-')}
             accessibilityRole="button"
-            accessibilityState={{ disabled: exportStatus === 'exporting' }}
+            accessibilityState={{
+              disabled: exportStatus.startsWith('exporting-'),
+            }}
           >
             <Text style={styles.secondaryButtonText}>
-              {exportStatus === 'exporting'
-                ? 'Preparando planilha...'
-                : exportStatus === 'error'
-                  ? 'Tentar compartilhar Excel'
-                  : 'Compartilhar Excel'}
+              {exportStatus === 'exporting-xlsx'
+                ? 'Preparando XLSX...'
+                : exportStatus === 'error-xlsx'
+                  ? 'Tentar exportar XLSX'
+                  : 'Exportar XLSX'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.secondaryButton,
+              exportStatus.startsWith('exporting-') && styles.disabledButton,
+            ]}
+            onPress={() => shareExport('csv', readings, metrics, collection)}
+            disabled={exportStatus.startsWith('exporting-')}
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: exportStatus.startsWith('exporting-'),
+            }}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {exportStatus === 'exporting-csv'
+                ? 'Preparando CSV...'
+                : exportStatus === 'error-csv'
+                  ? 'Tentar exportar CSV'
+                  : 'Exportar CSV'}
             </Text>
           </TouchableOpacity>
 
@@ -1026,7 +1136,7 @@ export default function App() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Avaliação de equilíbrio</Text>
-        <Text style={styles.subtitle}>Monitoramento de movimento da cabeça</Text>
+        <Text style={styles.subtitle}>Monitoramento postural</Text>
 
         <View
           style={styles.collectionCountCard}
