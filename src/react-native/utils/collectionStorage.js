@@ -30,3 +30,7 @@ export async function getCollectionsCount() {
   const collections = await getCollections();
   return collections.length;
 }
+
+export async function clearCollections() {
+  await AsyncStorage.removeItem(COLLECTIONS_STORAGE_KEY);
+}

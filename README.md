@@ -31,6 +31,7 @@ O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a
 - Formulário de identificação com nome, CPF/RG opcional, tipo de teste e tempo opcional de coleta.
 - Classificação da coleta como `Padrão` (modelo de treinamento) ou `Avaliação`.
 - Histórico persistente no dispositivo, com data e hora, identificação, leituras e métricas; contador de coletas na tela inicial.
+- Limpeza do histórico protegida por confirmação de senha do administrador.
 - Encerramento automático da coleta quando o tempo informado no formulário expira; sem tempo informado, o encerramento é manual.
 - Exportação e compartilhamento de arquivos Excel (`.xlsx`) e CSV pela interface nativa do celular.
 - Exibição imediata no app de gráficos do movimento registrado, com resumo da duração e das leituras por fase.
@@ -51,6 +52,16 @@ O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a
 - [SheetJS (`xlsx`)](https://www.npmjs.com/package/xlsx) — criação da planilha Excel.
 - [React Native Safe Area Context](https://github.com/AppAndFlow/react-native-safe-area-context) — adaptação às áreas seguras da tela.
 - Python, [pandas](https://pandas.pydata.org/), [SciPy](https://scipy.org/) e [Matplotlib](https://matplotlib.org/) — processamento e visualização dos dados exportados.
+
+## Estrutura do app e Expo Go
+
+O ponto de entrada `App.js` na raiz reexporta a tela principal de `src/react-native/screens/HomeScreen.js`. Componentes reutilizáveis ficam em `src/react-native/components/`, e o acesso ao AsyncStorage fica em `src/react-native/utils/collectionStorage.js`. A tela importa esses módulos com caminhos relativos, por exemplo `../components/AdminPasswordModal` e `../utils/collectionStorage`.
+
+O app usa módulos Expo e React Native compatíveis com Expo Go, incluindo AsyncStorage, sensores, áudio, compartilhamento, SVG e armazenamento de arquivos; não foi adicionado código nativo personalizado. A disponibilidade do giroscópio depende do dispositivo iOS.
+
+## Limpeza do histórico
+
+Na tela inicial, **Limpar Histórico** solicita a senha de administrador `123456`; a confirmação remove do AsyncStorage o histórico completo e atualiza o contador. Essa senha está fixa no código do aplicativo e serve apenas como barreira operacional: não é um mecanismo de segurança forte, pois pode ser descoberta por quem inspecionar o app instalado.
 
 ## Pré-requisitos e instalação
 
