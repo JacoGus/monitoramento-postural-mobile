@@ -735,48 +735,66 @@ export default function App() {
     }
   };
 
-  const exportReadings = async (readings, metrics) => {
+  const detailHeaders = [
+    'Nome do Individuo',
+    'CPF/RG',
+    'Tipo de teste',
+    'Tipo de coleta',
+    'Data/hora da coleta',
+    'Tempo configurado (s)',
+    'Tempo (ms)',
+    'Giroscópio X (rad/s)',
+    'Giroscópio Y (rad/s)',
+    'Giroscópio Z (rad/s)',
+    'Fase',
+  ];
+  const summaryHeaders = [
+    'Duração total (s)',
+    'Leituras',
+    'RMS X dinâmico (rad/s)',
+    'RMS Y dinâmico (rad/s)',
+    'Área elipse 95% X/Y ((rad/s)^2)',
+    'Jerk médio absoluto (rad/s^3)',
+    'Velocidade média X/Y (rad/s^2)',
+  ];
+  const getSummaryValues = (metrics) => [
+    metrics.durationSeconds,
+    metrics.readingCount,
+    metrics.rmsX,
+    metrics.rmsY,
+    metrics.confidenceEllipseArea95,
+    metrics.meanAbsoluteJerk,
+    metrics.meanSwayVelocity,
+  ];
+  const getDetailRows = (readings, collection) =>
+    readings.map(({ elapsedMs, x, y, z, phase }) => [
+      collection.participant.name,
+      collection.participant.documentId,
+      collection.testType,
+      collection.collectionType === 'padrao' ? 'Padrão' : 'Avaliação',
+      collection.timestamp,
+      collection.durationSeconds ?? '',
+      elapsedMs,
+      x,
+      y,
+      z,
+      phase === 'Estatico' ? 'Estático' : 'Dinâmico',
+    ]);
+
+  const exportReadings = async (readings, metrics, collection) => {
     if (!FileSystem.cacheDirectory) {
       throw new Error('Não foi possível acessar o armazenamento temporário.');
     }
 
     const worksheet = XLSX.utils.aoa_to_sheet([
-      [
-        'Tempo (ms)',
-        'Giroscópio X',
-        'Giroscópio Y',
-        'Giroscópio Z',
-        'Fase',
-      ],
-      ...readings.map(({ elapsedMs, x, y, z, phase }) => [
-        elapsedMs,
-        x,
-        y,
-        z,
-        phase,
-      ]),
+      detailHeaders,
+      ...getDetailRows(readings, collection),
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Avaliação');
     const summaryWorksheet = XLSX.utils.aoa_to_sheet([
-      [
-        'Duração total (s)',
-        'Leituras',
-        'RMS X dinâmico (rad/s)',
-        'RMS Y dinâmico (rad/s)',
-        'Área elipse 95% X/Y ((rad/s)^2)',
-        'Jerk médio absoluto (rad/s^3)',
-        'Velocidade média X/Y (rad/s^2)',
-      ],
-      [
-        metrics.durationSeconds,
-        metrics.readingCount,
-        metrics.rmsX,
-        metrics.rmsY,
-        metrics.confidenceEllipseArea95,
-        metrics.meanAbsoluteJerk,
-        metrics.meanSwayVelocity,
-      ],
+      summaryHeaders,
+      getSummaryValues(metrics),
     ]);
     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Resumo');
 
@@ -808,38 +826,27 @@ export default function App() {
   const protectCsvText = (value) =>
     /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
 
-  const exportCsv = async (readings, collection) => {
+  const exportCsv = async (readings, metrics, collection) => {
     if (!FileSystem.cacheDirectory) {
       throw new Error('Não foi possível acessar o armazenamento temporário.');
     }
 
-    const headers = [
-      'Nome do indivíduo',
-      'CPF/RG',
-      'Tipo de teste',
-      'Tipo de coleta',
-      'Data/hora da coleta',
-      'Tempo configurado (s)',
-      'Tempo (ms)',
-      'Giroscópio X (rad/s)',
-      'Giroscópio Y (rad/s)',
-      'Giroscópio Z (rad/s)',
-      'Fase',
-    ];
-    const dataRows = (readings.length > 0 ? readings : [null]).map((reading) => [
-      protectCsvText(collection.participant.name),
-      protectCsvText(collection.participant.documentId),
-      protectCsvText(collection.testType),
-      collection.collectionType,
-      collection.timestamp,
-      collection.durationSeconds ?? '',
-      reading?.elapsedMs ?? '',
-      reading?.x ?? '',
-      reading?.y ?? '',
-      reading?.z ?? '',
-      reading?.phase ?? '',
+    const detailRows = getDetailRows(readings, collection).map((row) => [
+      protectCsvText(row[0]),
+      protectCsvText(row[1]),
+      protectCsvText(row[2]),
+      ...row.slice(3),
     ]);
-    const csv = [headers, ...dataRows]
+    const csvRows = [
+      ['Resumo'],
+      summaryHeaders,
+      getSummaryValues(metrics),
+      [],
+      ['Avaliação'],
+      detailHeaders,
+      ...detailRows,
+    ];
+    const csv = csvRows
       .map((row) => row.map(escapeCsvCell).join(','))
       .join('\r\n');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -866,9 +873,9 @@ export default function App() {
     setExportStatus(`exporting-${format}`);
     try {
       if (format === 'csv') {
-        await exportCsv(readings, collection);
+        await exportCsv(readings, metrics, collection);
       } else {
-        await exportReadings(readings, metrics);
+        await exportReadings(readings, metrics, collection);
       }
       if (!mountedRef.current) return;
       setExportStatus(`done-${format}`);
