@@ -17,7 +17,7 @@ Aplicativo móvel para captura e exportação de dados de movimentação cervica
 
 A avaliação do equilíbrio pode envolver a observação dos movimentos da cabeça durante uma tarefa clínica. Este projeto explora o uso do giroscópio de um smartphone para registrar a movimentação cervical de pessoas idosas e gerar telemetria que possa ser analisada posteriormente pela equipe de Fisioterapia.
 
-O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena as leituras durante a avaliação e as exporta em uma planilha Excel compartilhável. A ferramenta é um apoio à coleta de dados e **não substitui uma avaliação clínica nem fornece diagnóstico**.
+O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a avaliação, salvar o histórico localmente no dispositivo e exportar as leituras em uma planilha Excel compartilhável. A ferramenta é um apoio à coleta de dados e **não substitui uma avaliação clínica nem fornece diagnóstico**.
 
 ## Funcionalidades
 
@@ -28,6 +28,9 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 - Beep duplo diferente ao fim da fase estática e aviso para começar a andar.
 - Captura contínua dos eixos X, Y e Z do giroscópio, com intervalo configurado de 50 ms.
 - Registro do tempo decorrido, em milissegundos, e da fase (`Estatico` ou `Dinamico`) em cada leitura.
+- Formulário de identificação com nome, CPF/RG opcional, tipo de teste e tempo opcional de coleta.
+- Classificação da coleta como `Padrão` (modelo de treinamento) ou `Avaliação`.
+- Histórico persistente no dispositivo, com data e hora, identificação, leituras e métricas; contador de coletas na tela inicial.
 - Geração automática de planilha Excel (`.xlsx`) ao encerrar a avaliação.
 - Compartilhamento do arquivo pela interface nativa do celular, para envio ou análise externa.
 - Exibição imediata no app de gráficos do movimento registrado, com resumo da duração e das leituras por fase.
@@ -41,6 +44,7 @@ O aplicativo oferece um fluxo simples para iniciar e encerrar a coleta, armazena
 - [React Native](https://reactnative.dev/) — interface móvel.
 - [Expo SDK 57](https://expo.dev/) — ferramentas e módulos nativos.
 - [Expo Sensors](https://docs.expo.dev/versions/v57.0.0/sdk/sensors/) — leitura do giroscópio.
+- [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) — armazenamento local persistente das coletas.
 - [Expo Audio](https://docs.expo.dev/versions/v57.0.0/sdk/audio/) — reprodução dos sinais sonoros.
 - [Expo FileSystem](https://docs.expo.dev/versions/v57.0.0/sdk/filesystem/) — gravação temporária da planilha.
 - [Expo Sharing](https://docs.expo.dev/versions/v57.0.0/sdk/sharing/) — compartilhamento nativo do arquivo.
@@ -82,11 +86,14 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 ## Como usar
 
 1. Abra o aplicativo e posicione o celular conforme a orientação do profissional responsável pela avaliação.
-2. Toque em **Iniciar Avaliação**. O aplicativo verifica o giroscópio e inicia a contagem regressiva com um beep em cada segundo: **3, 2, 1**.
-3. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
-4. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
-6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar. Os gráficos do movimento e o resumo da coleta ficam disponíveis diretamente no aplicativo.
-7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação.
+2. Preencha o nome e o tipo de teste. CPF/RG é opcional; informe um tempo em segundos para limitar a coleta ou deixe o campo vazio para encerrá-la manualmente. Use a chave para selecionar `Padrão` ou `Avaliação`.
+3. Toque em **Iniciar Avaliação**. O aplicativo registra a data e hora de início, verifica o giroscópio e inicia a contagem regressiva com um beep em cada segundo: **3, 2, 1**.
+4. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado com o celular na cabeça durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
+5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
+6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar; se informou um tempo, a captura encerra automaticamente ao atingi-lo. Os gráficos e o resumo ficam disponíveis no aplicativo, e a coleta concluída é salva no histórico local.
+7. A planilha `.xlsx` é gerada e o menu nativo de compartilhamento é aberto. Na tela de resultados, você também pode tocar em **Compartilhar Excel** novamente ou iniciar uma nova avaliação. A tela inicial mostra a quantidade de coletas armazenadas no dispositivo.
+
+O histórico é mantido localmente pelo AsyncStorage e não é sincronizado com um servidor. O AsyncStorage não criptografa os dados; considere essa característica ao registrar informações pessoais identificáveis.
 
 Os gráficos do app mostram os eixos do giroscópio ao longo do tempo e a dispersão dos eixos laterais e anteroposteriores, com a média da fase estática removida e uma suavização EMA de 3 Hz aplicada para visualização e cálculo das métricas. Os eixos do estabilograma podem ser alterados pelas constantes `EIXO_LATERAL` e `EIXO_ANTERO_POSTERIOR` no início de `App.js`. A tela informa duração, leituras por fase e RMS dinâmico dos eixos X/Y. Os resultados também incluem a área da elipse de confiança de 95% X/Y, o jerk médio absoluto tridimensional e a velocidade média da trajetória angular X/Y. A área da elipse usa a aproximação qui-quadrado de 5,991 para uma distribuição bivariada aproximadamente normal; o jerk deriva a velocidade angular duas vezes usando os timestamps; e a velocidade é o comprimento da trajetória X/Y do giroscópio dividido pelo tempo da fase dinâmica. As unidades são, respectivamente, (rad/s)², rad/s³ e rad/s².
 

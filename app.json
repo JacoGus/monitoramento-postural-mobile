@@ -12,6 +12,14 @@
         }
       ],
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "301651fc-555e-45bb-842b-de3e29af4cf4"
+      }
+    },
+    "android": {
+      "package": "com.gusjaco.monitoramentoposturalmobile"
+    }
   }
 }

@@ -4,7 +4,9 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import * as XLSX from 'xlsx';
+import { getCollectionsCount, saveCollection } from './collectionStorage';
 
 const UPDATE_INTERVAL_MS = 50;
 const PREPARATION_COUNTDOWN_SECONDS = 3;
@@ -464,16 +467,40 @@ export default function App() {
   const [countdown, setCountdown] = useState(null);
   const [assessmentResults, setAssessmentResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
+  const [collectionCount, setCollectionCount] = useState(0);
+  const [form, setForm] = useState({
+    name: '',
+    documentId: '',
+    testType: '',
+    durationSeconds: '',
+    collectionType: 'avaliacao',
+  });
   const beepPlayer = useAudioPlayer(null);
   const beepFilesRef = useRef({});
   const readingsRef = useRef([]);
   const startedAtRef = useRef(0);
   const subscriptionRef = useRef(null);
+  const pendingCollectionRef = useRef(null);
   const mountedRef = useRef(true);
   const runTokenRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
+    getCollectionsCount()
+      .then((count) => {
+        if (mountedRef.current) {
+          setCollectionCount(count);
+        }
+      })
+      .catch((error) => {
+        console.error('Falha ao carregar o histórico de coletas:', error);
+        if (mountedRef.current) {
+          Alert.alert(
+            'Falha ao carregar histórico',
+            error instanceof Error ? error.message : String(error)
+          );
+        }
+      });
 
     return () => {
       mountedRef.current = false;
@@ -522,6 +549,13 @@ export default function App() {
     setExportStatus('idle');
     subscriptionRef.current = Gyroscope.addListener(({ x, y, z }) => {
       const elapsedMs = Date.now() - startedAtRef.current;
+      const durationSeconds =
+        pendingCollectionRef.current?.durationSeconds ?? null;
+      if (durationSeconds !== null && elapsedMs >= durationSeconds * 1000) {
+        finishAssessment();
+        return;
+      }
+
       readingsRef.current.push({
         elapsedMs,
         x,
@@ -531,6 +565,50 @@ export default function App() {
       });
     });
     setStatus('static');
+  };
+
+  const updateForm = (field, value) => {
+    setForm((currentForm) => ({ ...currentForm, [field]: value }));
+  };
+
+  const getCollectionFromForm = () => {
+    const name = form.name.trim();
+    const testType = form.testType.trim();
+    const rawDuration = form.durationSeconds.trim();
+    const durationSeconds =
+      rawDuration === '' ? null : Number(rawDuration.replace(',', '.'));
+
+    if (!name || !testType) {
+      Alert.alert(
+        'Campos obrigatórios',
+        'Informe o nome do indivíduo e o tipo de teste.'
+      );
+      return null;
+    }
+
+    if (
+      rawDuration !== '' &&
+      (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+    ) {
+      Alert.alert(
+        'Tempo inválido',
+        'Informe um tempo de coleta maior que zero ou deixe o campo vazio.'
+      );
+      return null;
+    }
+
+    const timestamp = new Date().toISOString();
+    return {
+      id: `${timestamp}-${Math.random().toString(36).slice(2, 9)}`,
+      timestamp,
+      participant: {
+        name,
+        documentId: form.documentId.trim(),
+      },
+      testType,
+      durationSeconds,
+      collectionType: form.collectionType,
+    };
   };
 
   const beginAssessment = async () => {
@@ -709,10 +787,11 @@ export default function App() {
     }
   };
 
-  const finishAssessment = () => {
+  const finishAssessment = async () => {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
     runTokenRef.current += 1;
+    setCountdown(null);
     const completedReadings = readingsRef.current.slice();
     readingsRef.current = [];
     const offsets = getStaticOffsets(completedReadings);
@@ -721,19 +800,51 @@ export default function App() {
       completedReadings,
       filteredReadings
     );
+    const collection = {
+      ...pendingCollectionRef.current,
+      readings: completedReadings,
+      metrics,
+    };
+    pendingCollectionRef.current = null;
     setAssessmentResults({
       readings: completedReadings,
       filteredReadings,
       metrics,
+      collection,
     });
     setStatus('results');
-    shareReadings(completedReadings, metrics);
+
+    try {
+      const savedCollections = await saveCollection(collection);
+      if (mountedRef.current) {
+        setCollectionCount(savedCollections.length);
+      }
+    } catch (error) {
+      console.error('Falha ao salvar coleta no dispositivo:', error);
+      if (mountedRef.current) {
+        Alert.alert(
+          'Falha ao salvar coleta',
+          `Os resultados continuam disponíveis nesta tela, mas a coleta não foi salva no dispositivo.\n\n${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+
+    if (mountedRef.current) {
+      shareReadings(completedReadings, metrics);
+    }
   };
 
   const handleMainAction = () => {
     if (status === 'static' || status === 'dynamic') {
       finishAssessment();
     } else if (status === 'idle') {
+      const collection = getCollectionFromForm();
+      if (!collection) {
+        return;
+      }
+      pendingCollectionRef.current = collection;
       beginAssessment();
     }
   };
@@ -757,7 +868,8 @@ export default function App() {
   }[status];
 
   if (status === 'results' && assessmentResults) {
-    const { readings, filteredReadings, metrics } = assessmentResults;
+    const { readings, filteredReadings, metrics, collection } =
+      assessmentResults;
     const staticCount = readings.filter(
       (reading) => reading.phase === 'Estatico'
     ).length;
@@ -773,6 +885,23 @@ export default function App() {
           <Text style={styles.subtitle}>
             Visualização do movimento registrado pelo giroscópio
           </Text>
+
+          <View style={styles.resultParticipantCard}>
+            <Text style={styles.resultParticipantName}>
+              {collection.participant.name}
+            </Text>
+            <Text style={styles.resultParticipantDetail}>
+              Teste: {collection.testType}
+              {collection.participant.documentId
+                ? ` · Documento: ${collection.participant.documentId}`
+                : ''}
+            </Text>
+            <Text style={styles.resultParticipantDetail}>
+              {collection.collectionType === 'padrao' ? 'Padrão' : 'Avaliação'}
+              {' · '}
+              {new Date(collection.timestamp).toLocaleString()}
+            </Text>
+          </View>
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
@@ -891,9 +1020,113 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F7F5" />
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Avaliação de equilíbrio</Text>
         <Text style={styles.subtitle}>Monitoramento de movimento da cabeça</Text>
+
+        <View
+          style={styles.collectionCountCard}
+          accessibilityRole="summary"
+          accessibilityLabel={`${collectionCount} coletas armazenadas no dispositivo`}
+        >
+          <Text style={styles.collectionCountValue}>{collectionCount}</Text>
+          <Text style={styles.collectionCountLabel}>
+            coletas armazenadas no dispositivo
+          </Text>
+        </View>
+
+        {status === 'idle' && (
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Identificação da coleta</Text>
+
+            <Text style={styles.fieldLabel}>Nome do indivíduo *</Text>
+            <TextInput
+              style={styles.input}
+              value={form.name}
+              onChangeText={(value) => updateForm('name', value)}
+              placeholder="Nome completo"
+              placeholderTextColor="#718078"
+              autoCapitalize="words"
+              returnKeyType="next"
+              accessibilityLabel="Nome do indivíduo, obrigatório"
+            />
+
+            <Text style={styles.fieldLabel}>CPF/RG (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={form.documentId}
+              onChangeText={(value) => updateForm('documentId', value)}
+              placeholder="CPF ou RG"
+              placeholderTextColor="#718078"
+              autoCapitalize="none"
+              returnKeyType="next"
+              accessibilityLabel="CPF ou RG, opcional"
+            />
+
+            <Text style={styles.fieldLabel}>Tipo de teste *</Text>
+            <TextInput
+              style={styles.input}
+              value={form.testType}
+              onChangeText={(value) => updateForm('testType', value)}
+              placeholder="Ex.: Agachamento unipodal"
+              placeholderTextColor="#718078"
+              autoCapitalize="sentences"
+              returnKeyType="next"
+              accessibilityLabel="Tipo de teste, obrigatório"
+            />
+
+            <Text style={styles.fieldLabel}>Tempo de coleta (segundos)</Text>
+            <TextInput
+              style={styles.input}
+              value={form.durationSeconds}
+              onChangeText={(value) =>
+                updateForm('durationSeconds', value.replace(/[^0-9.,]/g, ''))
+              }
+              placeholder="Vazio para coleta livre"
+              placeholderTextColor="#718078"
+              keyboardType="decimal-pad"
+              accessibilityLabel="Tempo de coleta em segundos, opcional"
+            />
+
+            <View style={styles.switchRow}>
+              <Text
+                style={[
+                  styles.switchOption,
+                  form.collectionType === 'padrao' && styles.switchOptionSelected,
+                ]}
+              >
+                Padrão
+              </Text>
+              <Switch
+                value={form.collectionType === 'avaliacao'}
+                onValueChange={(value) =>
+                  updateForm('collectionType', value ? 'avaliacao' : 'padrao')
+                }
+                trackColor={{ false: '#9AB5A8', true: '#78A890' }}
+                thumbColor={
+                  form.collectionType === 'avaliacao' ? '#075E3B' : '#F4F7F5'
+                }
+                accessibilityLabel="Tipo de coleta: Padrão ou Avaliação"
+              />
+              <Text
+                style={[
+                  styles.switchOption,
+                  form.collectionType === 'avaliacao' &&
+                    styles.switchOptionSelected,
+                ]}
+              >
+                Avaliação
+              </Text>
+            </View>
+            <Text style={styles.switchHint}>
+              Padrão: modelo de treinamento · Avaliação: classificação
+            </Text>
+          </View>
+        )}
 
         <View
           style={styles.center}
@@ -949,7 +1182,7 @@ export default function App() {
           Este aplicativo registra movimento e não substitui uma avaliação
           clínica.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -960,10 +1193,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F7F5',
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 20,
+    gap: 16,
   },
   title: {
     color: '#142D25',
@@ -977,8 +1211,97 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
+  collectionCountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#E4EFE9',
+    borderWidth: 1,
+    borderColor: '#C4D8CC',
+    borderRadius: 16,
+    padding: 14,
+  },
+  collectionCountValue: {
+    color: '#075E3B',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  collectionCountLabel: {
+    color: '#263D34',
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D4DFD9',
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+  },
+  formTitle: {
+    color: '#142D25',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  fieldLabel: {
+    color: '#263D34',
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  input: {
+    minHeight: 50,
+    backgroundColor: '#F8FAF9',
+    borderWidth: 1,
+    borderColor: '#B9C9C0',
+    borderRadius: 10,
+    color: '#142D25',
+    fontSize: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  switchOption: {
+    color: '#52645C',
+    fontSize: 15,
+  },
+  switchOptionSelected: {
+    color: '#075E3B',
+    fontWeight: '700',
+  },
+  switchHint: {
+    color: '#52645C',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  resultParticipantCard: {
+    backgroundColor: '#E4EFE9',
+    borderRadius: 14,
+    padding: 14,
+    gap: 4,
+  },
+  resultParticipantName: {
+    color: '#142D25',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  resultParticipantDetail: {
+    color: '#40564D',
+    fontSize: 14,
+  },
   center: {
-    flex: 1,
+    flexGrow: 1,
+    minHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
   },
