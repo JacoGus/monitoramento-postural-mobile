@@ -32,6 +32,7 @@ O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a
 - Classificação da coleta como `Padrão` (modelo de treinamento) ou `Avaliação`.
 - Histórico persistente no dispositivo, com data e hora, identificação, leituras e métricas; contador de coletas na tela inicial.
 - Tela de avaliações salvas com duração, contagem por fase, métricas, gráficos e exportação XLSX/CSV por coleta.
+- Edição de nome e CPF/RG, exclusão individual protegida por senha e limpeza geral do histórico na tela de avaliações salvas.
 - Limpeza do histórico protegida por confirmação de senha do administrador.
 - Encerramento automático da coleta quando o tempo informado no formulário expira; sem tempo informado, o encerramento é manual.
 - Exportação e compartilhamento de arquivos Excel (`.xlsx`) e CSV pela interface nativa do celular.
@@ -62,7 +63,7 @@ O app usa módulos Expo e React Native compatíveis com Expo Go, incluindo Async
 
 ## Limpeza do histórico
 
-Na tela inicial, **Limpar Histórico** solicita a senha de administrador `123456`; a confirmação remove do AsyncStorage o histórico completo e atualiza o contador. Essa senha está fixa no código do aplicativo e serve apenas como barreira operacional: não é um mecanismo de segurança forte, pois pode ser descoberta por quem inspecionar o app instalado.
+Na tela **Avaliações Salvas**, é possível editar o nome e o CPF/RG associados a uma coleta. A exclusão individual e o botão **Limpar todo o histórico**, ao final da lista, solicitam a senha de administrador `123456`; o contador da tela inicial é atualizado após exclusões. Essa senha está fixa no código do aplicativo e serve apenas como barreira operacional: não é um mecanismo de segurança forte, pois pode ser descoberta por quem inspecionar o app instalado.
 
 ## Pré-requisitos e instalação
 
@@ -103,7 +104,7 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 4. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado e posicione o dispositivo conforme orientação durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
 5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
 6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar; se informou um tempo, a captura encerra automaticamente após esse período de gravação. Os gráficos e o resumo ficam disponíveis no aplicativo, e a coleta concluída é salva no histórico local.
-7. O menu nativo de compartilhamento da planilha `.xlsx` é aberto ao encerrar a coleta. Na tela de resultados, use **Exportar XLSX** ou **Exportar CSV** para compartilhar qualquer formato novamente, ou inicie uma nova avaliação. O CSV inclui a identificação do indivíduo e cada leitura do giroscópio. Na tela inicial, **Histórico de Avaliações** abre as coletas salvas, com opção de rever os gráficos e métricas ou exportar cada uma em XLSX/CSV. A tela inicial também mostra a quantidade de coletas armazenadas no dispositivo.
+7. O menu nativo de compartilhamento da planilha `.xlsx` é aberto ao encerrar a coleta. Na tela de resultados, use **Exportar XLSX** ou **Exportar CSV** para compartilhar qualquer formato novamente, ou inicie uma nova avaliação. O CSV inclui a identificação do indivíduo e cada leitura do giroscópio. Na tela inicial, **Histórico de Avaliações** abre as coletas salvas, com opção de rever os gráficos e métricas, editar o nome e o CPF/RG, ou exportar cada coleta em XLSX/CSV. A exclusão individual e **Limpar todo o histórico** solicitam a senha administrativa `123456`. A tela inicial também mostra a quantidade de coletas armazenadas no dispositivo.
 
 O histórico é mantido localmente pelo AsyncStorage e não é sincronizado com um servidor. O AsyncStorage não criptografa os dados; considere essa característica ao registrar informações pessoais identificáveis.
 

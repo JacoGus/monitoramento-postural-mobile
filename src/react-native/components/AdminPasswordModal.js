@@ -11,7 +11,15 @@ import {
 
 const ADMIN_PASSWORD = '123456';
 
-export default function AdminPasswordModal({ visible, onCancel, onConfirm }) {
+export default function AdminPasswordModal({
+  visible,
+  title = 'Limpar Histórico',
+  message = 'Digite a Senha do Administrador para apagar todas as coletas deste dispositivo.',
+  confirmLabel = 'Confirmar',
+  submittingLabel = 'Limpando...',
+  onCancel,
+  onConfirm,
+}) {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,11 +55,8 @@ export default function AdminPasswordModal({ visible, onCancel, onConfirm }) {
     >
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          <Text style={styles.title}>Limpar Histórico</Text>
-          <Text style={styles.message}>
-            Digite a Senha do Administrador para apagar todas as coletas deste
-            dispositivo.
-          </Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.message}>{message}</Text>
           <TextInput
             style={styles.input}
             value={password}
@@ -87,7 +92,7 @@ export default function AdminPasswordModal({ visible, onCancel, onConfirm }) {
               accessibilityState={{ disabled: isSubmitting }}
             >
               <Text style={styles.confirmButtonText}>
-                {isSubmitting ? 'Limpando...' : 'Confirmar'}
+                {isSubmitting ? submittingLabel : confirmLabel}
               </Text>
             </TouchableOpacity>
           </View>

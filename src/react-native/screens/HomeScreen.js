@@ -19,12 +19,10 @@ import * as Sharing from 'expo-sharing';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import * as XLSX from 'xlsx';
 import {
-  clearCollections,
   getCollectionsCount,
   getCollections,
   saveCollection,
 } from '../utils/collectionStorage';
-import AdminPasswordModal from '../components/AdminPasswordModal';
 import AssessmentsHistoryScreen from './AssessmentsHistoryScreen';
 
 const UPDATE_INTERVAL_MS = 50;
@@ -476,7 +474,6 @@ export default function App() {
   const [assessmentResults, setAssessmentResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
   const [collectionCount, setCollectionCount] = useState(0);
-  const [isClearModalVisible, setIsClearModalVisible] = useState(false);
   const [activeScreen, setActiveScreen] = useState('home');
   const [detailsReturnToHistory, setDetailsReturnToHistory] = useState(false);
   const [form, setForm] = useState({
@@ -612,21 +609,6 @@ export default function App() {
 
   const updateForm = (field, value) => {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
-  };
-
-  const handleClearCollections = async () => {
-    try {
-      await clearCollections();
-      setCollectionCount(0);
-      return true;
-    } catch (error) {
-      console.error('Falha ao limpar o histórico de coletas:', error);
-      Alert.alert(
-        'Falha ao limpar histórico',
-        error instanceof Error ? error.message : String(error)
-      );
-      return false;
-    }
   };
 
   const getCollectionFromForm = () => {
@@ -1049,6 +1031,7 @@ export default function App() {
       <AssessmentsHistoryScreen
         exportStatus={exportStatus}
         onBack={() => setActiveScreen('home')}
+        onCollectionsChanged={setCollectionCount}
         onExport={exportSavedAssessment}
         onViewDetails={showSavedAssessment}
       />
@@ -1278,20 +1261,6 @@ export default function App() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.clearHistoryButton}
-          onPress={() => setIsClearModalVisible(true)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.clearHistoryButtonText}>Limpar Histórico</Text>
-        </TouchableOpacity>
-
-        <AdminPasswordModal
-          visible={isClearModalVisible}
-          onCancel={() => setIsClearModalVisible(false)}
-          onConfirm={handleClearCollections}
-        />
-
         {status === 'idle' && (
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Identificação da coleta</Text>
@@ -1515,21 +1484,6 @@ const styles = StyleSheet.create({
   historyButtonHint: {
     color: '#C4D8CC',
     fontSize: 13,
-  },
-  clearHistoryButton: {
-    alignSelf: 'stretch',
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#B42318',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  clearHistoryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
   formCard: {
     backgroundColor: '#FFFFFF',
