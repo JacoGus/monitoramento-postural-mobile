@@ -31,6 +31,7 @@ O aplicativo oferece um fluxo para identificar cada coleta, iniciar e encerrar a
 - Formulário de identificação com nome, CPF/RG opcional, tipo de teste e tempo opcional de coleta.
 - Classificação da coleta como `Padrão` (modelo de treinamento) ou `Avaliação`.
 - Histórico persistente no dispositivo, com data e hora, identificação, leituras e métricas; contador de coletas na tela inicial.
+- Tela de avaliações salvas com duração, contagem por fase, métricas, gráficos e exportação XLSX/CSV por coleta.
 - Limpeza do histórico protegida por confirmação de senha do administrador.
 - Encerramento automático da coleta quando o tempo informado no formulário expira; sem tempo informado, o encerramento é manual.
 - Exportação e compartilhamento de arquivos Excel (`.xlsx`) e CSV pela interface nativa do celular.
@@ -102,7 +103,7 @@ Com o servidor iniciado, abra o projeto no Expo Go ou use o QR code exibido no t
 4. Ao fim do preparo, um beep de tom diferente indica o começo da captura estática. Mantenha-se parado e posicione o dispositivo conforme orientação durante cinco segundos; a tela mostra **5, 4, 3, 2, 1** e toca um beep a cada segundo. As leituras são identificadas como `Estatico`.
 5. Ao completar os cinco segundos, um beep duplo diferente sinaliza a transição, o app exibe **Pode Andar** e continua a coleta, identificando as leituras seguintes como `Dinamico`.
 6. Toque em **Parar Avaliação** quando a coleta dinâmica terminar; se informou um tempo, a captura encerra automaticamente após esse período de gravação. Os gráficos e o resumo ficam disponíveis no aplicativo, e a coleta concluída é salva no histórico local.
-7. O menu nativo de compartilhamento da planilha `.xlsx` é aberto ao encerrar a coleta. Na tela de resultados, use **Exportar XLSX** ou **Exportar CSV** para compartilhar qualquer formato novamente, ou inicie uma nova avaliação. O CSV inclui a identificação do indivíduo e cada leitura do giroscópio. A tela inicial mostra a quantidade de coletas armazenadas no dispositivo.
+7. O menu nativo de compartilhamento da planilha `.xlsx` é aberto ao encerrar a coleta. Na tela de resultados, use **Exportar XLSX** ou **Exportar CSV** para compartilhar qualquer formato novamente, ou inicie uma nova avaliação. O CSV inclui a identificação do indivíduo e cada leitura do giroscópio. Na tela inicial, **Histórico de Avaliações** abre as coletas salvas, com opção de rever os gráficos e métricas ou exportar cada uma em XLSX/CSV. A tela inicial também mostra a quantidade de coletas armazenadas no dispositivo.
 
 O histórico é mantido localmente pelo AsyncStorage e não é sincronizado com um servidor. O AsyncStorage não criptografa os dados; considere essa característica ao registrar informações pessoais identificáveis.
 

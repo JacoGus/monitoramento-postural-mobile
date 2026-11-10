@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,9 +21,11 @@ import * as XLSX from 'xlsx';
 import {
   clearCollections,
   getCollectionsCount,
+  getCollections,
   saveCollection,
 } from '../utils/collectionStorage';
 import AdminPasswordModal from '../components/AdminPasswordModal';
+import AssessmentsHistoryScreen from './AssessmentsHistoryScreen';
 
 const UPDATE_INTERVAL_MS = 50;
 const PREPARATION_COUNTDOWN_SECONDS = 3;
@@ -474,6 +477,8 @@ export default function App() {
   const [exportStatus, setExportStatus] = useState('idle');
   const [collectionCount, setCollectionCount] = useState(0);
   const [isClearModalVisible, setIsClearModalVisible] = useState(false);
+  const [activeScreen, setActiveScreen] = useState('home');
+  const [detailsReturnToHistory, setDetailsReturnToHistory] = useState(false);
   const [form, setForm] = useState({
     name: '',
     documentId: '',
@@ -523,6 +528,30 @@ export default function App() {
       subscriptionRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (activeScreen === 'history') {
+          setActiveScreen('home');
+          return true;
+        }
+
+        if (activeScreen === 'details' && detailsReturnToHistory) {
+          setAssessmentResults(null);
+          setStatus('idle');
+          setDetailsReturnToHistory(false);
+          setActiveScreen('history');
+          return true;
+        }
+
+        return false;
+      }
+    );
+
+    return () => subscription.remove();
+  }, [activeScreen, detailsReturnToHistory]);
 
   const playBeep = async (name, audioBase64) => {
     if (!FileSystem.cacheDirectory) {
@@ -926,6 +955,8 @@ export default function App() {
       collection,
     });
     setStatus('results');
+    setActiveScreen('details');
+    setDetailsReturnToHistory(false);
     if (mountedRef.current) {
       shareExport('xlsx', completedReadings, metrics, collection);
     }
@@ -980,7 +1011,51 @@ export default function App() {
     dynamic: 'Pode Andar',
   }[status];
 
-  if (status === 'results' && assessmentResults) {
+  const showSavedAssessment = (collection) => {
+    if (!Array.isArray(collection.readings) || !collection.metrics) {
+      Alert.alert(
+        'Avaliação indisponível',
+        'Os dados desta avaliação estão incompletos e não podem ser exibidos.'
+      );
+      return;
+    }
+
+    const offsets = getStaticOffsets(collection.readings);
+    setAssessmentResults({
+      readings: collection.readings,
+      filteredReadings: filterReadingsEma(collection.readings, offsets),
+      metrics: collection.metrics,
+      collection,
+    });
+    setStatus('results');
+    setDetailsReturnToHistory(true);
+    setActiveScreen('details');
+  };
+
+  const exportSavedAssessment = (format, collection) => {
+    if (!Array.isArray(collection.readings) || !collection.metrics) {
+      Alert.alert(
+        'Exportação indisponível',
+        'Os dados desta avaliação estão incompletos e não podem ser exportados.'
+      );
+      return;
+    }
+
+    shareExport(format, collection.readings, collection.metrics, collection);
+  };
+
+  if (activeScreen === 'history') {
+    return (
+      <AssessmentsHistoryScreen
+        exportStatus={exportStatus}
+        onBack={() => setActiveScreen('home')}
+        onExport={exportSavedAssessment}
+        onViewDetails={showSavedAssessment}
+      />
+    );
+  }
+
+  if (activeScreen === 'details' && status === 'results' && assessmentResults) {
     const { readings, filteredReadings, metrics, collection } =
       assessmentResults;
     const staticCount = readings.filter(
@@ -1145,10 +1220,14 @@ export default function App() {
               setAssessmentResults(null);
               setExportStatus('idle');
               setStatus('idle');
+              setActiveScreen(detailsReturnToHistory ? 'history' : 'home');
+              setDetailsReturnToHistory(false);
             }}
             accessibilityRole="button"
           >
-            <Text style={styles.buttonText}>Nova Avaliação</Text>
+            <Text style={styles.buttonText}>
+              {detailsReturnToHistory ? 'Voltar ao Histórico' : 'Nova Avaliação'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -1176,6 +1255,28 @@ export default function App() {
             coletas armazenadas no dispositivo
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.historyButton,
+            status !== 'idle' && styles.disabledButton,
+          ]}
+          onPress={() => setActiveScreen('history')}
+          disabled={status !== 'idle'}
+          accessibilityRole="button"
+          accessibilityLabel="Histórico de Avaliações"
+          accessibilityState={{ disabled: status !== 'idle' }}
+        >
+          <Text style={styles.historyButtonIcon} accessible={false}>
+            ◷
+          </Text>
+          <View style={styles.historyButtonCopy}>
+            <Text style={styles.historyButtonText}>Histórico de Avaliações</Text>
+            <Text style={styles.historyButtonHint}>
+              Consulte e exporte coletas salvas
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.clearHistoryButton}
@@ -1383,6 +1484,37 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    minHeight: 76,
+    backgroundColor: '#142D25',
+    borderWidth: 1,
+    borderColor: '#075E3B',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    gap: 14,
+  },
+  historyButtonIcon: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '700',
+  },
+  historyButtonCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  historyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  historyButtonHint: {
+    color: '#C4D8CC',
+    fontSize: 13,
   },
   clearHistoryButton: {
     alignSelf: 'stretch',
